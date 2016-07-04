@@ -18,16 +18,27 @@ hncp_print(netdissect_options *ndo,
             const u_char *cp, u_int length)
 {
     ND_PRINT((ndo, "hncp"));
-
-    ND_TCHECK2(*cp, 4);
-
-    u_short type = EXTRACT_16BITS(cp);
-    u_short len = EXTRACT_16BITS(cp + 2);
-
-    ND_PRINT((ndo, " (%d)", type, len));
-
+    
+    u_int i = 0;
+    
+    while(i<length) {
+        const u_char *tlv = cp + i;
+        
+        ND_TCHECK2(*tlv, 4);
+        
+        const u_short type = EXTRACT_16BITS(tlv);
+        const u_short len = EXTRACT_16BITS(tlv+2);
+        ND_TCHECK2(*tlv, 4+len);
+        
+        ND_PRINT((ndo, " %d (%d) ", type, len));
+        for (int a=0; a<len; a++) {
+            ND_PRINT((ndo, "%x", *(tlv+4+a) ));
+        }
+        
+        i += 4+len;
+    }
     return;
-
+    
     trunc:
        ND_PRINT((ndo, " %s", tstr));
        return;
