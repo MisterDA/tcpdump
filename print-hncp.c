@@ -13,6 +13,9 @@
 
 static const char tstr[] = "[|hncp]";
 
+/* TLVs */
+#define HNCP_VERSION 32
+
 void
 hncp_print(netdissect_options *ndo,
             const u_char *cp, u_int length)
@@ -20,6 +23,8 @@ hncp_print(netdissect_options *ndo,
     ND_PRINT((ndo, "hncp"));
     
     u_int i = 0;
+    
+    //ND_PRINT((ndo, " (%d)", length));
     
     while(i<length) {
         const u_char *tlv = cp + i;
@@ -30,10 +35,28 @@ hncp_print(netdissect_options *ndo,
         const u_short len = EXTRACT_16BITS(tlv+2);
         ND_TCHECK2(*tlv, 4+len);
         
-        ND_PRINT((ndo, " %d (%d) ", type, len));
-        for (int a=0; a<len; a++) {
-            ND_PRINT((ndo, "%x", *(tlv+4+a) ));
+        switch (type) {
+            
+            case HNCP_VERSION: {
+                // do stuff
+            }
+                break;
+            
         }
+        
+        
+        
+        
+        
+        
+        
+        
+        /*
+        ND_PRINT((ndo, " %d (%d)", type, len));
+        for (int a=0; a<len; a++) {
+            ND_PRINT((ndo, " %02hhX", *(tlv+4+a) ));
+        }
+        //*/
         
         i += 4+len;
     }
