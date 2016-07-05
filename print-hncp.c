@@ -71,7 +71,7 @@ hncp_print(netdissect_options *ndo,
     ND_PRINT((ndo, "hncp"));
 
     u_int i = 0;
-    while(i < length) {
+    while (i < length) {
         const u_char *tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
         const u_short type = EXTRACT_16BITS(tlv);
@@ -89,7 +89,7 @@ hncp_print(netdissect_options *ndo,
         switch (type) {
         case DNCP_REQUEST_NETWORK_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Request network state"));
+                ND_PRINT((ndo, ", Request network state"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -98,7 +98,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_REQUEST_NODE_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Request node state"));
+                ND_PRINT((ndo, ", Request node state"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -107,7 +107,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_NODE_ENDPOINT: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node endpoint"));
+                ND_PRINT((ndo, ", Node endpoint"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -116,7 +116,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_NETWORK_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Network state"));
+                ND_PRINT((ndo, ", Network state"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -125,7 +125,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_NETWORK_NODE_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Network node state"));
+                ND_PRINT((ndo, ", Network node state"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -134,7 +134,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_PEER: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Peer"));
+                ND_PRINT((ndo, ", Peer"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -143,7 +143,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_KEEP_ALIVE_INTERVAL: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Keep-alive interval"));
+                ND_PRINT((ndo, ", Keep-alive interval"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -152,7 +152,7 @@ hncp_print(netdissect_options *ndo,
 
         case DNCP_TRUST_VERDICT: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Trust-Verdict"));
+                ND_PRINT((ndo, ", Trust-Verdict"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -161,7 +161,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_VERSION: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "HNCP-Version"));
+                ND_PRINT((ndo, ", HNCP-Version"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -170,7 +170,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_EXTERNAL_CONNECTION: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "External-Connection"));
+                ND_PRINT((ndo, ", External-Connection"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -179,7 +179,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_DELEGATED_PREFIX: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Delegated-Prefix"));
+                ND_PRINT((ndo, ", Delegated-Prefix"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -188,7 +188,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_PREFIX_POLICY: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Prefix-Policy"));
+                ND_PRINT((ndo, ", Prefix-Policy"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -197,7 +197,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_DHCPV6_DATA: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DHCPv6-Data"));
+                ND_PRINT((ndo, ", DHCPv6-Data"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -206,7 +206,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_DHCPV4_DATA: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DHCPv4-Data"));
+                ND_PRINT((ndo, ", DHCPv4-Data"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -215,7 +215,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_ASSIGNED_PREFIX: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Assigned-Prefix"));
+                ND_PRINT((ndo, ", Assigned-Prefix"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -224,7 +224,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_NODE_ADDRESS: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node-Address"));
+                ND_PRINT((ndo, ", Node-Address"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -233,7 +233,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_DNS_DELEGATED_ZONE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DNS-Delegated-Zone"));
+                ND_PRINT((ndo, ", DNS-Delegated-Zone"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -242,7 +242,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_DOMAIN_NAME: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Domain-Name"));
+                ND_PRINT((ndo, ", Domain-Name"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -251,7 +251,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_NODE_NAME: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node-Name"));
+                ND_PRINT((ndo, ", Node-Name"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -260,7 +260,7 @@ hncp_print(netdissect_options *ndo,
 
         case HNCP_MANAGED_PSK: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Managed-PSK"));
+                ND_PRINT((ndo, ", Managed-PSK"));
             else {
                 ND_PRINT((ndo, " "));
             }
@@ -286,6 +286,6 @@ hncp_print(netdissect_options *ndo,
     return;
 
  invalid:
-   ND_PRINT((ndo, "%s", istr));
-   return;
+    ND_PRINT((ndo, "%s", istr));
+    return;
 }

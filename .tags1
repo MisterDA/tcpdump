@@ -1,0 +1,28 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	0	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+tstr	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^static const char tstr[] = "[|hncp]";$/;"	variable	line:10	file:
+DNCP_REQUEST_NETWORK_STATE	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_REQUEST_NETWORK_STATE /;"	macro	line:13	file:
+DNCP_REQUEST_NODE_STATE	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_REQUEST_NODE_STATE /;"	macro	line:14	file:
+DNCP_NODE_ENDPOINT	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_NODE_ENDPOINT /;"	macro	line:15	file:
+DNCP_NETWORK_STATE	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_NETWORK_STATE /;"	macro	line:16	file:
+DNCP_NETWORK_NODE_STATE	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_NETWORK_NODE_STATE /;"	macro	line:17	file:
+DNCP_PEER	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_PEER /;"	macro	line:18	file:
+DNCP_KEEP_ALIVE_INTERVAL	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_KEEP_ALIVE_INTERVAL /;"	macro	line:19	file:
+DNCP_TRUST_VERDICT	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define DNCP_TRUST_VERDICT /;"	macro	line:20	file:
+HNCP_VERSION	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_VERSION /;"	macro	line:36	file:
+HNCP_EXTERNAL_CONNECTION	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_EXTERNAL_CONNECTION /;"	macro	line:37	file:
+HNCP_DELEGATED_PREFIX	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_DELEGATED_PREFIX /;"	macro	line:38	file:
+HNCP_PREFIX_POLICY	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_PREFIX_POLICY /;"	macro	line:39	file:
+HNCP_DHCPV6_DATA	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_DHCPV6_DATA /;"	macro	line:40	file:
+HNCP_DHCPV4_DATA	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_DHCPV4_DATA /;"	macro	line:41	file:
+HNCP_ASSIGNED_PREFIX	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_ASSIGNED_PREFIX /;"	macro	line:42	file:
+HNCP_NODE_ADDRESS	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_NODE_ADDRESS /;"	macro	line:43	file:
+HNCP_DNS_DELEGATED_ZONE	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_DNS_DELEGATED_ZONE /;"	macro	line:44	file:
+HNCP_DOMAIN_NAME	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_DOMAIN_NAME /;"	macro	line:45	file:
+HNCP_NODE_NAME	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_NODE_NAME /;"	macro	line:46	file:
+HNCP_MANAGED_PSK	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^#define HNCP_MANAGED_PSK /;"	macro	line:47	file:
+hncp_print	/media/shared/@antonin/Projets/HNCP/tcpdump/print-hncp.c	/^hncp_print(netdissect_options *ndo,$/;"	function	line:68	signature:(netdissect_options *ndo, const u_char *cp, u_int length)
