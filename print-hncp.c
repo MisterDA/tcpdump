@@ -75,6 +75,18 @@ format_32(const unsigned char *data)
     return buf[i];
 }
 
+const char *
+format_64(const unsigned char *data)
+{
+    static char buf[4][28];
+    static int i = 0;
+    i = (i + 1) % 4;
+    snprintf(buf[i], 28, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+             data[0], data[1], data[2], data[3],
+             data[4], data[5], data[6], data[7]);
+    return buf[i];
+}
+
 void
 hncp_print(netdissect_options *ndo,
            const u_char *cp, u_int length)
@@ -85,8 +97,8 @@ hncp_print(netdissect_options *ndo,
     while (i < length) {
         const u_char *tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
-        const u_short type = EXTRACT_16BITS(tlv);
-        const u_short len = EXTRACT_16BITS(tlv + 2);
+        const uint16_t type = EXTRACT_16BITS(tlv);
+        const uint16_t len = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
         ND_TCHECK2(*value, len);
 
@@ -126,7 +138,7 @@ hncp_print(netdissect_options *ndo,
                 ND_PRINT((ndo, "\n\tNode endpoint"));
                 if (len != 8) goto invalid;
                 ND_PRINT((ndo, " %s", format_32(value)));
-                ND_PRINT((ndo, " %s", EXTRACT_32BITS(value + 4) ));
+                ND_PRINT((ndo, " %d", EXTRACT_32BITS(value + 4)));
             }
         }
             break;
@@ -153,7 +165,13 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Peer"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tPeer"));
+                if (len <= 8) goto invalid;
+                ND_PRINT((ndo, " %s %d %d",
+                    format_32(value),
+                    EXTRACT_32BITS(value + 4),
+                    EXTRACT_32BITS(value + 8)
+                ));
             }
         }
             break;
@@ -162,7 +180,12 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Keep-alive interval"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tKeep-alive interval"));
+                if (len < 8) goto invalid;
+                ND_PRINT((ndo, " %d %d",
+                    EXTRACT_32BITS(value),
+                    EXTRACT_32BITS(value + 4)
+                ));
             }
         }
             break;
@@ -171,7 +194,12 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Trust-Verdict"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tTrust-Verdict"));
+                if (len <= 36) goto invalid;
+                ND_PRINT((ndo, " %d %x",
+                    *value,
+
+                ))
             }
         }
             break;
