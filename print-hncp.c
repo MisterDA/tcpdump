@@ -14,7 +14,7 @@ static const char tstr[] = "[|hncp]";
 #define DNCP_REQUEST_NODE_STATE 2
 #define DNCP_NODE_ENDPOINT 3
 #define DNCP_NETWORK_STATE 4
-#define DNCP_NETWORK_NODE_STATE 5
+#define DNCP_NODE_STATE 5
 #define DNCP_PEER 8
 #define DNCP_KEEP_ALIVE_INTERVAL 9
 #define DNCP_TRUST_VERDICT 10
@@ -25,7 +25,7 @@ static const struct tok dncp_type_values[] = {
     { DNCP_REQUEST_NODE_STATE,		"Request node state" },
     { DNCP_NODE_ENDPOINT,		"Node endpoint" },
     { DNCP_NETWORK_STATE,		"Network state" },
-    { DNCP_NETWORK_NODE_STATE,		"Network node state" },
+    { DNCP_NODE_STATE,		"Network node state" },
     { DNCP_PEER,		"Peer" },
     { DNCP_KEEP_ALIVE_INTERVAL,		"Keep-alive interval" },
     { DNCP_TRUST_VERDICT,		"Trust-Verdict" },
@@ -63,6 +63,17 @@ static const struct tok hncp_type_values[] = {
     { 0, NULL}
 };
 */
+
+static const char *
+format_32(const unsigned char *data)
+{
+    static char buf[4][16];
+    static int i = 0;
+    i = (i + 1) % 4;
+    snprintf(buf[i], 16, "%02x:%02x:%02x:%02x",
+             data[0], data[1], data[2], data[3]);
+    return buf[i];
+}
 
 void
 hncp_print(netdissect_options *ndo,
@@ -123,7 +134,7 @@ hncp_print(netdissect_options *ndo,
         }
             break;
 
-        case DNCP_NETWORK_NODE_STATE: {
+        case DNCP_NODE_STATE: {
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Network node state"));
             else {
