@@ -87,7 +87,8 @@ hncp_print(netdissect_options *ndo,
         ND_TCHECK2(*tlv, 4);
         const u_short type = EXTRACT_16BITS(tlv);
         const u_short len = EXTRACT_16BITS(tlv + 2);
-        ND_TCHECK2(*tlv, 4 + len);
+        const u_char *value = tlv + 4;
+        ND_TCHECK2(*value, len);
 
         /*
         if (ndo->ndo_vflag < 1) {
@@ -113,7 +114,7 @@ hncp_print(netdissect_options *ndo,
             else {
                 ND_PRINT((ndo, "\n\tRequest node state"));
                 if (len != 4) goto invalid;
-                ND_PRINT((ndo, " %s", format_32(message + 4)));
+                ND_PRINT((ndo, " %s", format_32(value)));
             }
         }
             break;
@@ -122,7 +123,10 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Node endpoint"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tNode endpoint"));
+                if (len != 8) goto invalid;
+                ND_PRINT((ndo, " %s", format_32(value)));
+                ND_PRINT((ndo, " %s", EXTRACT_32BITS(value + 4) ));
             }
         }
             break;
