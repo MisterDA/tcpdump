@@ -79,7 +79,7 @@ void
 hncp_print(netdissect_options *ndo,
            const u_char *cp, u_int length)
 {
-    ND_PRINT((ndo, "hncp"));
+    ND_PRINT((ndo, "hncp (%d)", length));
 
     u_int i = 0;
     while (i < length) {
@@ -98,194 +98,206 @@ hncp_print(netdissect_options *ndo,
         }
         */
 
+        if (i) ND_PRINT((ndo, ","));
+
         switch (type) {
         case DNCP_REQUEST_NETWORK_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Request network state"));
+                ND_PRINT((ndo, " Request network state"));
             else {
-                ND_PRINT((ndo, "\n\tRequest network state"));
+                ND_PRINT((ndo, "\n\tRequest network state (%d)", len+4));
             }
         }
             break;
 
         case DNCP_REQUEST_NODE_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Request node state"));
+                ND_PRINT((ndo, " Request node state"));
             else {
-                ND_PRINT((ndo, "\n\tRequest node state"));
+                ND_PRINT((ndo, "\n\tRequest node state (%d)", len+4));
                 if (len != 4) goto invalid;
-                ND_PRINT((ndo, " %s", format_32(value)));
+                ND_PRINT((ndo, " NI: %s", format_32(value)));
             }
         }
             break;
 
         case DNCP_NODE_ENDPOINT: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Node endpoint"));
+                ND_PRINT((ndo, " Node endpoint"));
             else {
-                ND_PRINT((ndo, "\n\tNode endpoint"));
+                ND_PRINT((ndo, "\n\tNode endpoint (%d)", len+4));
                 if (len != 8) goto invalid;
-                ND_PRINT((ndo, " %s", format_32(value)));
-                ND_PRINT((ndo, " %s", EXTRACT_32BITS(value + 4) ));
+                ND_PRINT((ndo, " NI: %s EI: %08x",
+                    format_32(value),
+                    EXTRACT_32BITS(value + 4)
+                ));
             }
         }
             break;
 
         case DNCP_NETWORK_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Network state"));
+                ND_PRINT((ndo, " Network state"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tNetwork state (%d)", len+4));
+                if (len != 8) goto invalid;
+                ND_PRINT((ndo, " hash: %016lx",
+                    EXTRACT_64BITS(value)
+                ));
             }
         }
             break;
 
         case DNCP_NODE_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Node state"));
+                ND_PRINT((ndo, " Node state"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tNode state (%d)", len+4));
             }
         }
             break;
 
         case DNCP_PEER: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Peer"));
+                ND_PRINT((ndo, " Peer"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tPeer (%d)", len+4));
             }
         }
             break;
 
         case DNCP_KEEP_ALIVE_INTERVAL: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Keep-alive interval"));
+                ND_PRINT((ndo, " Keep-alive interval"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tKeep-alive interval (%d)", len+4));
             }
         }
             break;
 
         case DNCP_TRUST_VERDICT: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Trust-Verdict"));
+                ND_PRINT((ndo, " Trust-Verdict"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tTrust-Verdict (%d)", len+4));
             }
         }
             break;
 
         case HNCP_VERSION: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", HNCP-Version"));
+                ND_PRINT((ndo, " HNCP-Version"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tHNCP-Version (%d)", len+4));
             }
         }
             break;
 
         case HNCP_EXTERNAL_CONNECTION: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", External-Connection"));
+                ND_PRINT((ndo, " External-Connection"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tExternal-Connection (%d)", len+4));
             }
         }
             break;
 
         case HNCP_DELEGATED_PREFIX: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Delegated-Prefix"));
+                ND_PRINT((ndo, " Delegated-Prefix"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tDelegated-Prefix (%d)", len+4));
             }
         }
             break;
 
         case HNCP_PREFIX_POLICY: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Prefix-Policy"));
+                ND_PRINT((ndo, " Prefix-Policy"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tPrefix-Policy (%d)", len+4));
             }
         }
             break;
 
         case HNCP_DHCPV6_DATA: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", DHCPv6-Data"));
+                ND_PRINT((ndo, " DHCPv6-Data"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tDHCPv6-Data (%d)", len+4));
             }
         }
             break;
 
         case HNCP_DHCPV4_DATA: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", DHCPv4-Data"));
+                ND_PRINT((ndo, " DHCPv4-Data"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tDHCPv4-Data (%d)", len+4));
             }
         }
             break;
 
         case HNCP_ASSIGNED_PREFIX: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Assigned-Prefix"));
+                ND_PRINT((ndo, " Assigned-Prefix"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tAssigned-Prefix (%d)", len+4));
             }
         }
             break;
 
         case HNCP_NODE_ADDRESS: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Node-Address"));
+                ND_PRINT((ndo, " Node-Address"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tNode-Address (%d)", len+4));
             }
         }
             break;
 
         case HNCP_DNS_DELEGATED_ZONE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", DNS-Delegated-Zone"));
+                ND_PRINT((ndo, " DNS-Delegated-Zone"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tDNS-Delegated-Zone (%d)", len+4));
             }
         }
             break;
 
         case HNCP_DOMAIN_NAME: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Domain-Name"));
+                ND_PRINT((ndo, " Domain-Name"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tDomain-Name (%d)", len+4));
             }
         }
             break;
 
         case HNCP_NODE_NAME: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Node-Name"));
+                ND_PRINT((ndo, " Node-Name"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tNode-Name (%d)", len+4));
             }
         }
             break;
 
         case HNCP_MANAGED_PSK: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Managed-PSK"));
+                ND_PRINT((ndo, " Managed-PSK"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tManaged-PSK (%d)", len+4));
             }
         }
             break;
 
         default:
-            ND_PRINT((ndo, "\n\tUnknown message type %d", type));
+            if (!ndo->ndo_vflag)
+                ND_PRINT((ndo, " Unknown message type"));
+            else {
+                ND_PRINT((ndo, "\n\tUnknown message type %d (%d)", type, len+4));
+            }
         }
 
         /*
