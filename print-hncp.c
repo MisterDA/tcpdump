@@ -14,7 +14,7 @@ static const char tstr[] = "[|hncp]";
 #define DNCP_REQUEST_NODE_STATE 2
 #define DNCP_NODE_ENDPOINT 3
 #define DNCP_NETWORK_STATE 4
-#define DNCP_NETWORK_NODE_STATE 5
+#define DNCP_NODE_STATE 5
 #define DNCP_PEER 8
 #define DNCP_KEEP_ALIVE_INTERVAL 9
 #define DNCP_TRUST_VERDICT 10
@@ -25,7 +25,7 @@ static const struct tok dncp_type_values[] = {
     { DNCP_REQUEST_NODE_STATE,		"Request node state" },
     { DNCP_NODE_ENDPOINT,		"Node endpoint" },
     { DNCP_NETWORK_STATE,		"Network state" },
-    { DNCP_NETWORK_NODE_STATE,		"Network node state" },
+    { DNCP_NODE_STATE,		"Network node state" },
     { DNCP_PEER,		"Peer" },
     { DNCP_KEEP_ALIVE_INTERVAL,		"Keep-alive interval" },
     { DNCP_TRUST_VERDICT,		"Trust-Verdict" },
@@ -64,6 +64,16 @@ static const struct tok hncp_type_values[] = {
 };
 */
 
+static const char *
+format_id(const u_char *id)
+{
+    static char buf[25];
+    snprintf(buf, 25, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+             id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7]);
+    buf[24] = '\0';
+    return buf;
+}
+
 void
 hncp_print(netdissect_options *ndo,
            const u_char *cp, u_int length)
@@ -91,7 +101,7 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Request network state"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tRequest network state"));
             }
         }
             break;
@@ -100,7 +110,9 @@ hncp_print(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, ", Request node state"));
             else {
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, "\n\tRequest node state"));
+                if (len != 4) goto invalid;
+                ND_PRINT((ndo, " %s", format_32(message + 4)));
             }
         }
             break;
@@ -123,9 +135,9 @@ hncp_print(netdissect_options *ndo,
         }
             break;
 
-        case DNCP_NETWORK_NODE_STATE: {
+        case DNCP_NODE_STATE: {
             if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, ", Network node state"));
+                ND_PRINT((ndo, ", Node state"));
             else {
                 ND_PRINT((ndo, " "));
             }
