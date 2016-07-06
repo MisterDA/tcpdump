@@ -41,8 +41,8 @@ static const struct tok dncp_type_values[] = {
 #define HNCP_EXTERNAL_CONNECTION 33
 #define HNCP_DELEGATED_PREFIX 34
 #define HNCP_PREFIX_POLICY 43
-#define HNCP_DHCPV6_DATA 37
-#define HNCP_DHCPV4_DATA 38
+#define HNCP_DHCPV4_DATA 37
+#define HNCP_DHCPV6_DATA 38
 #define HNCP_ASSIGNED_PREFIX 35
 #define HNCP_NODE_ADDRESS 36
 #define HNCP_DNS_DELEGATED_ZONE 39
@@ -289,7 +289,7 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 uint16_t capabilities;
                 uint8_t M, P, H, L;
-                char *user_agent = NULL;
+                u_char *user_agent = NULL;
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
                 capabilities = EXTRACT_16BITS(value + 2);
@@ -300,7 +300,7 @@ hncp_print_rec(netdissect_options *ndo,
                 user_agent = malloc(len - 3);
                 memcpy(user_agent, value + 4, len - 4);
                 user_agent[len - 3] = '\0';
-                ND_PRINT((ndo, "M: %d P: %d H: %d L: %d User-agent: %s",
+                ND_PRINT((ndo, " M: %d P: %d H: %d L: %d User-agent: %s",
                     // EXTRACT_16BITS(value), // reserved
                     M, P, H, L,
                     user_agent
@@ -315,7 +315,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "External-Connection"));
             else {
                 ND_PRINT((ndo, "External-Connection (%u)", len+4));
-                if (len > 0 && length > 4) // FIXME: length > 4 useful ?
+                if (len > 0)
                     hncp_print_rec(ndo, value, len, indent+1);
             }
         }
@@ -325,12 +325,26 @@ hncp_print_rec(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "Delegated-Prefix"));
             else {
+                uint8_t prefix_len;
+                uint prefix_len_byte;
+                u_char *prefix;
                 ND_PRINT((ndo, "Delegated-Prefix (%u)", len+4));
                 if (len < 9) goto invalid;
-                ND_PRINT((ndo, " VLSO: %s PLSO: %s",
+                prefix_len = value[4];
+                prefix_len_byte = (prefix_len + 7) / 8;
+
+                // FIXME: change prefix from (strange) string to IPv6 prefix
+                prefix = malloc(prefix_len_byte + 1);
+                memcpy(prefix, value + 5, prefix_len_byte);
+                prefix[prefix_len_byte] = '\0';
+                ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: %s",
                     format_interval(EXTRACT_32BITS(value)),
-                    format_interval(EXTRACT_32BITS(value + 4))
+                    format_interval(EXTRACT_32BITS(value + 4)),
+                    prefix
                 ));
+                free(prefix);
+
+                hncp_print_rec(ndo, value + 5 + prefix_len_byte, len - 5 - prefix_len_byte, indent+1);
             }
         }
             break;
@@ -339,7 +353,23 @@ hncp_print_rec(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "Prefix-Policy"));
             else {
+                uint8_t policy;
                 ND_PRINT((ndo, "Prefix-Policy (%u)", len+4));
+                if (len < 1) goto invalid;
+                policy = value[0];
+                if (policy == 0) {
+                    if (length != 5 || len != 1) goto invalid;
+                } else if (policy >= 1 && policy <= 128) {
+
+                } else if (policy == 129) {
+
+                } else if (policy == 130) {
+
+                } else if (policy == 131) {
+                    if (length != 5 || len != 1) goto invalid;
+                } else if (policy >= 132) {
+                    // Reserved for future additins
+                }
             }
         }
             break;
@@ -349,6 +379,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "DHCPv6-Data"));
             else {
                 ND_PRINT((ndo, "DHCPv6-Data (%u)", len+4));
+                if (len == 0) goto invalid;
             }
         }
             break;
@@ -358,6 +389,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "DHCPv4-Data"));
             else {
                 ND_PRINT((ndo, "DHCPv4-Data (%u)", len+4));
+                if (len == 0) goto invalid;
             }
         }
             break;
@@ -366,7 +398,13 @@ hncp_print_rec(netdissect_options *ndo,
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "Assigned-Prefix"));
             else {
+                uint8_t rsv, prty, prefix_len;
                 ND_PRINT((ndo, "Assigned-Prefix (%u)", len+4));
+                if (len < 6) goto invalid;
+
+                ND_PRINT((ndo, " EPID: %08x",
+                    EXTRACT_32BITS(value)
+                ));
             }
         }
             break;
