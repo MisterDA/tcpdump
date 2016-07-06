@@ -65,9 +65,9 @@ static const struct tok hncp_type_values[] = {
 */
 
 static const char *
-format_32(const unsigned char *data)
+format_32(const unsigned char *data) //FIXME -> format_id() ?
 {
-    static char buf[4][16];
+    static char buf[4][11+5];
     static int i = 0;
     i = (i + 1) % 4;
     snprintf(buf[i], 16, "%02x:%02x:%02x:%02x",
@@ -75,15 +75,30 @@ format_32(const unsigned char *data)
     return buf[i];
 }
 
-static const char *
+static const char * //FIXME usefull ?
 format_64(const unsigned char *data)
 {
-    static char buf[4][28];
+    static char buf[4][23+5];
     static int i = 0;
     i = (i + 1) % 4;
     snprintf(buf[i], 28, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
              data[0], data[1], data[2], data[3],
              data[4], data[5], data[6], data[7]);
+    return buf[i];
+}
+
+static const char *
+format_256(const unsigned char *data)
+{
+    static char buf[4][64+5];
+    static int i = 0;
+    i = (i + 1) % 4;
+    snprintf(buf[i], 28, "%016lx%016lx%016lx%016lx",
+         EXTRACT_64BITS(data),
+         EXTRACT_64BITS(data + 8),
+         EXTRACT_64BITS(data + 16),
+         EXTRACT_64BITS(data + 24)
+    );
     return buf[i];
 }
 
@@ -193,6 +208,21 @@ hncp_print_rec(netdissect_options *ndo,
                 ));
                 if (len > 20) {
                     ND_PRINT((ndo, " Data:"));
+
+                    //*
+                    int i = 20; // PRINT NESTED TLVs
+                    while (i<len) {
+                        const uint16_t type = EXTRACT_16BITS(value+i);
+                        const uint16_t len = EXTRACT_16BITS(value+i + 2);
+                        ND_PRINT((ndo, "\n\t\t%04x %04x ", type, len));
+                        //ND_PRINT((ndo, "\n\t\t%02x%02x %02x%02x ", value[i], value[i+1], value[i+2], value[i+3] ));
+                        for (int j = 0; j < len; j++) {
+                            ND_PRINT((ndo, "%02x", value[i+4+j]));
+                        }
+                        i += len+4;
+                    }
+                    //*/
+
                     hncp_print_rec(ndo, value+20, len-20, indent+1);
                 }
             }
@@ -234,13 +264,10 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 ND_PRINT((ndo, "Trust-Verdict (%u)", len+4));
                 if (len <= 36) goto invalid;
-                ND_PRINT((ndo, " Verdict: %d Fingerprint: %x%x%x%x common-name: ",
+                ND_PRINT((ndo, " Verdict: %d Fingerprint: %s common-name: ",
                     *value, // Verdict
                     // EXTRACT_24BITS(value + 1), // Reserved
-                    EXTRACT_64BITS(value + 4), // Fingerprint
-                    EXTRACT_64BITS(value + 12),
-                    EXTRACT_64BITS(value + 20),
-                    EXTRACT_64BITS(value + 28)
+                    format_256(value + 4) // Fingerprint
                 ));
                 for (int i = 36; i < length; i++) // Common Name
                     ND_PRINT((ndo, "%x", value[i]));
