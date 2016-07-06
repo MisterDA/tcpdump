@@ -40,8 +40,8 @@ static const struct tok dncp_type_values[] = {
 #define HNCP_EXTERNAL_CONNECTION 33
 #define HNCP_DELEGATED_PREFIX 34
 #define HNCP_PREFIX_POLICY 43
-#define HNCP_DHCPV6_DATA 37
-#define HNCP_DHCPV4_DATA 38
+#define HNCP_DHCPV4_DATA 37
+#define HNCP_DHCPV6_DATA 38
 #define HNCP_ASSIGNED_PREFIX 35
 #define HNCP_NODE_ADDRESS 36
 #define HNCP_DNS_DELEGATED_ZONE 39
@@ -288,14 +288,14 @@ hncp_print_rec(netdissect_options *ndo,
                 char *user_agent = NULL;
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
-                capabilities = EXTRACT_16BITS(value);
-                M = (uint8_t)(capabilities << 12);
-                P = (uint8_t)(capabilities << 8);
-                H = (uint8_t)(capabilities << 4);
-                L = (uint8_t)capabilities;
-                user_agent = malloc(len - 4);
+                capabilities = EXTRACT_16BITS(value + 2);
+                M = (uint8_t)(capabilities << 12 & 0xf);
+                P = (uint8_t)(capabilities << 8 & 0xf);
+                H = (uint8_t)(capabilities << 4 & 0xf);
+                L = (uint8_t)capabilities & 0xf;
+                user_agent = malloc(len - 3);
                 memcpy(user_agent, value + 4, len - 4);
-                user_agent[len - 5] = '\0';
+                user_agent[len - 3] = '\0';
                 ND_PRINT((ndo, " M: %d P: %d H: %d L: %d User-agent: %s",
                     // EXTRACT_16BITS(value), // reserved
                     M, P, H, L,
@@ -311,7 +311,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "External-Connection"));
             else {
                 ND_PRINT((ndo, "External-Connection (%u)", len+4));
-                if (len > 0 && length > 4) // FIXME: length > 4 useful ?
+                if (len > 0)
                     hncp_print_rec(ndo, value, len, indent+1);
             }
         }
