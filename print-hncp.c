@@ -296,11 +296,12 @@ hncp_print_rec(netdissect_options *ndo,
                 user_agent = malloc(len - 4);
                 memcpy(user_agent, value + 4, len - 4);
                 user_agent[len - 5] = '\0';
-                ND_PRINT((ndo, "M: %d P: %d H: %d L: %d User-agent: %s",
+                ND_PRINT((ndo, " M: %d P: %d H: %d L: %d User-agent: %s",
                     // EXTRACT_16BITS(value), // reserved
                     M, P, H, L,
                     user_agent
                 ));
+                free(user_agent);
             }
         }
             break;
