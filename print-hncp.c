@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "netdissect.h"
+#include "addrtoname.h"
 #include "extract.h"
 
 static const char tstr[] = "[|hncp]";
@@ -136,10 +137,13 @@ hncp_print_rec(netdissect_options *ndo,
     while (i < length) {
         const u_char *tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
+        if (i+4>length) goto invalid;
+
         const uint16_t type = EXTRACT_16BITS(tlv);
         const uint16_t len = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
         ND_TCHECK2(*value, len);
+        if (i+len+4>length) goto invalid;
 
         if (!ndo->ndo_vflag) {
             if (i) ND_PRINT((ndo, ", "));
@@ -212,7 +216,7 @@ hncp_print_rec(netdissect_options *ndo,
                 if (len > 20) {
                     ND_PRINT((ndo, " Data:"));
 
-                    //*
+                    //* //FIXME: strange comportement
                     int i = 20; // PRINT NESTED TLVs
                     while (i<len) {
                         const uint16_t type = EXTRACT_16BITS(value+i);
@@ -288,19 +292,20 @@ hncp_print_rec(netdissect_options *ndo,
                 char *user_agent = NULL;
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
-                capabilities = EXTRACT_16BITS(value);
-                M = (uint8_t)(capabilities << 12);
-                P = (uint8_t)(capabilities << 8);
-                H = (uint8_t)(capabilities << 4);
-                L = (uint8_t)capabilities;
-                user_agent = malloc(len - 4);
+                capabilities = EXTRACT_16BITS(value + 2);
+                M = (uint8_t)(capabilities << 12 & 0xf);
+                P = (uint8_t)(capabilities << 8 & 0xf);
+                H = (uint8_t)(capabilities << 4 & 0xf);
+                L = (uint8_t)capabilities & 0xf;
+                user_agent = malloc(len - 3);
                 memcpy(user_agent, value + 4, len - 4);
-                user_agent[len - 5] = '\0';
+                user_agent[len - 3] = '\0';
                 ND_PRINT((ndo, "M: %d P: %d H: %d L: %d User-agent: %s",
                     // EXTRACT_16BITS(value), // reserved
                     M, P, H, L,
                     user_agent
                 ));
+                free(user_agent);
             }
         }
             break;
@@ -398,6 +403,12 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Node-Name"));
             else {
                 ND_PRINT((ndo, "Node-Name (%u)", len+4));
+                if (len < 17) goto invalid;
+                ND_PRINT((ndo, " IP Adress: %s Name: ",
+                    ip6addr_string(ndo,value)
+                ));
+                
+                hncp_print_rec(ndo, value+32, len-32, indent+1);
             }
         }
             break;
@@ -407,6 +418,11 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Managed-PSK"));
             else {
                 ND_PRINT((ndo, "Managed-PSK (%u)", len+4));
+                if (len < 32) goto invalid;
+                ND_PRINT((ndo, " PSK: %s",
+                    format_256(value)
+                ));
+                hncp_print_rec(ndo, value+32, len-32, indent+1);
             }
         }
             break;
@@ -432,7 +448,13 @@ hncp_print_rec(netdissect_options *ndo,
     return;
 
  trunc:
-    ND_PRINT((ndo, " %s", tstr));
+    if (!ndo->ndo_vflag) {
+        ND_PRINT((ndo, " %s", tstr));
+    } else {
+        ND_PRINT((ndo, "\n"));
+        for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t"));
+        ND_PRINT((ndo, "%s", tstr));
+    }
     return;
 
  invalid:
