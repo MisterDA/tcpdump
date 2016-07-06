@@ -98,9 +98,9 @@ format_interval(const uint16_t i)
     return buf;
 }
 
-void
+static void
 hncp_print_rec(netdissect_options *ndo,
-           const u_char *cp, u_int length, int indent);
+               const u_char *cp, u_int length, int indent);
 
 void
 hncp_print(netdissect_options *ndo,
@@ -110,9 +110,9 @@ hncp_print(netdissect_options *ndo,
     hncp_print_rec(ndo, cp, length, 1);
 }
 
-void
+static void
 hncp_print_rec(netdissect_options *ndo,
-           const u_char *cp, u_int length, int indent)
+               const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
     while (i < length) {
@@ -128,7 +128,7 @@ hncp_print_rec(netdissect_options *ndo,
             else ND_PRINT((ndo, " "));
         } else {
             ND_PRINT((ndo, "\n"));
-            for (int t=indent;t>0;t--) ND_PRINT((ndo, "\t"));
+            for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t"));
         }
 
         switch (type) {
@@ -188,10 +188,10 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, " NID: %s Seq-num: %u Interval: %s Hash: %016lx",
                     format_32(value),
                     EXTRACT_32BITS(value + 4),
-                    format_interval(value + 8),
+                    format_interval(EXTRACT_32BITS(value + 8)),
                     EXTRACT_64BITS(value + 12)
                 ));
-                if (len>20) {
+                if (len > 20) {
                     ND_PRINT((ndo, " Data:"));
                     hncp_print_rec(ndo, value+20, len-20, indent+1);
                 }
@@ -222,7 +222,7 @@ hncp_print_rec(netdissect_options *ndo,
                 if (len < 8) goto invalid;
                 ND_PRINT((ndo, " EPID: %08x Interval: %s",
                     EXTRACT_32BITS(value),
-                    format_interval(value + 4)
+                    format_interval(EXTRACT_32BITS(value + 4))
                 ));
             }
         }
@@ -234,10 +234,16 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 ND_PRINT((ndo, "Trust-Verdict (%u)", len+4));
                 if (len <= 36) goto invalid;
-                ND_PRINT((ndo, " Verdict: %d Fingerprint: %x",
-                    *value,
-                    0
+                ND_PRINT((ndo, " Verdict: %d Fingerprint: %x%x%x%x common-name: ",
+                    *value, // Verdict
+                    // EXTRACT_24BITS(value + 1), // Reserved
+                    EXTRACT_64BITS(value + 4), // Fingerprint
+                    EXTRACT_64BITS(value + 12),
+                    EXTRACT_64BITS(value + 20),
+                    EXTRACT_64BITS(value + 28)
                 ));
+                for (int i = 36; i < length; i++) // Common Name
+                    ND_PRINT((ndo, "%x", value[i]));
             }
         }
             break;
@@ -247,6 +253,8 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "HNCP-Version"));
             else {
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
+                if (len < 5) goto invalid;
+                ND_PRINT((ndo, ""));
             }
         }
             break;
