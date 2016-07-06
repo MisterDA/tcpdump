@@ -4,6 +4,9 @@
 
 #include <netdissect-stdinc.h>
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "netdissect.h"
 #include "extract.h"
 
@@ -264,24 +267,40 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 ND_PRINT((ndo, "Trust-Verdict (%u)", len+4));
                 if (len <= 36) goto invalid;
-                ND_PRINT((ndo, " Verdict: %d Fingerprint: %s common-name: ",
+                ND_PRINT((ndo, " Verdict: %d Fingerprint: %s Common Name: ",
                     *value, // Verdict
                     // EXTRACT_24BITS(value + 1), // Reserved
                     format_256(value + 4) // Fingerprint
                 ));
-                for (int i = 36; i < length; i++) // Common Name
+                for (int i = 36; i < len; i++) // Common Name
                     ND_PRINT((ndo, "%x", value[i]));
             }
         }
             break;
 
+        // FIXME: check the MPHL and the User-agent
         case HNCP_VERSION: {
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "HNCP-Version"));
             else {
+                uint16_t capabilities;
+                uint8_t M, P, H, L;
+                char *user_agent = NULL;
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
-                ND_PRINT((ndo, ""));
+                capabilities = EXTRACT_16BITS(value);
+                M = (uint8_t)(capabilities << 12);
+                P = (uint8_t)(capabilities << 8);
+                H = (uint8_t)(capabilities << 4);
+                L = (uint8_t)capabilities;
+                user_agent = malloc(len - 4);
+                memcpy(user_agent, value + 4, len - 4);
+                user_agent[len - 5] = '\0';
+                ND_PRINT((ndo, "M: %d P: %d H: %d L: %d User-agent: %s",
+                    // EXTRACT_16BITS(value), // reserved
+                    M, P, H, L,
+                    user_agent
+                ));
             }
         }
             break;
@@ -291,6 +310,8 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "External-Connection"));
             else {
                 ND_PRINT((ndo, "External-Connection (%u)", len+4));
+                if (len > 0 && length > 4) // FIXME: length > 4 useful ?
+                    hncp_print_rec(ndo, value, len, indent+1);
             }
         }
             break;
@@ -300,6 +321,11 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Delegated-Prefix"));
             else {
                 ND_PRINT((ndo, "Delegated-Prefix (%u)", len+4));
+                if (len < 9) goto invalid;
+                ND_PRINT((ndo, " VLSO: %s PLSO: %s",
+                    format_interval(EXTRACT_32BITS(value)),
+                    format_interval(EXTRACT_32BITS(value + 4))
+                ));
             }
         }
             break;
