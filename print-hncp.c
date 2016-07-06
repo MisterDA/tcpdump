@@ -142,7 +142,7 @@ hncp_print_rec(netdissect_options *ndo,
         const uint16_t type = EXTRACT_16BITS(tlv);
         const uint16_t len = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
-        ND_TCHECK2(*value, len);
+        ND_TCHECK2(*value, len);  //TODO
         if (i+len+4>length) goto invalid;
 
         if (!ndo->ndo_vflag) {
@@ -202,6 +202,7 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case DNCP_NODE_STATE: {
+            printf("A: %d %d %d\n", length, i, len); 
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "Node state"));
             else {
@@ -216,7 +217,7 @@ hncp_print_rec(netdissect_options *ndo,
                 if (len > 20) {
                     ND_PRINT((ndo, " Data:"));
 
-                    //* //FIXME: strange comportement
+                    /* //FIXME: strange comportement
                     int i = 20; // PRINT NESTED TLVs
                     while (i<len) {
                         const uint16_t type = EXTRACT_16BITS(value+i);
@@ -293,9 +294,9 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
                 capabilities = EXTRACT_16BITS(value + 2);
-                M = (uint8_t)(capabilities << 12 & 0xf);
-                P = (uint8_t)(capabilities << 8 & 0xf);
-                H = (uint8_t)(capabilities << 4 & 0xf);
+                M = (uint8_t)((capabilities << 12) & 0xf);
+                P = (uint8_t)((capabilities << 8) & 0xf);
+                H = (uint8_t)((capabilities << 4) & 0xf);
                 L = (uint8_t)capabilities & 0xf;
                 user_agent = malloc(len - 3);
                 memcpy(user_agent, value + 4, len - 4);
@@ -445,8 +446,15 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, " IP Adress: %s Name: ",
                     ip6addr_string(ndo,value)
                 ));
-                
-                hncp_print_rec(ndo, value+32, len-32, indent+1);
+                unsigned char l = value[16];
+                if (l<64) {
+                    for (int i=0; i<l; i++)
+                        ND_PRINT((ndo, "%c", value[17+i]));
+                } else
+                    ND_PRINT((ndo, "(invalid)"));
+                l += 17;
+                //l += -l&3; // TODO 0-pad ???
+                hncp_print_rec(ndo, value+l, len-l, indent+1);
             }
         }
             break;
@@ -481,7 +489,8 @@ hncp_print_rec(netdissect_options *ndo,
             }
         }
 
-        i += len + 4;
+        i += 4 + len;
+        i += -i & 3;
     }
     return;
 
