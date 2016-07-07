@@ -20,20 +20,6 @@ static const char tstr[] = "[|hncp]";
 #define DNCP_KEEP_ALIVE_INTERVAL 9
 #define DNCP_TRUST_VERDICT 10
 
-/*
-static const struct tok dncp_type_values[] = {
-    { DNCP_REQUEST_NETWORK_STATE,	"Request network state" },
-    { DNCP_REQUEST_NODE_STATE,		"Request node state" },
-    { DNCP_NODE_ENDPOINT,		"Node endpoint" },
-    { DNCP_NETWORK_STATE,		"Network state" },
-    { DNCP_NODE_STATE,		"Network node state" },
-    { DNCP_PEER,		"Peer" },
-    { DNCP_KEEP_ALIVE_INTERVAL,		"Keep-alive interval" },
-    { DNCP_TRUST_VERDICT,		"Trust-Verdict" },
-    { 0, NULL}
-};
-*/
-
 #define HNCP_VERSION 32
 #define HNCP_EXTERNAL_CONNECTION 33
 #define HNCP_DELEGATED_PREFIX 34
@@ -47,23 +33,55 @@ static const struct tok dncp_type_values[] = {
 #define HNCP_NODE_NAME 41
 #define HNCP_MANAGED_PSK 42
 
-/*
-static const struct tok hncp_type_values[] = {
-    { HNCP_VERSION,		"HNCP-Version" },
-    { HNCP_EXTERNAL_CONNECTION,		"External-Connection" },
-    { HNCP_DELEGATED_PREFIX,		"Delegated-Prefix" },
-    { HNCP_PREFIX_POLICY,		"Prefix-Policy" },
-    { HNCP_DHCPV6_DATA,		"DHCPv6-Data" },
-    { HNCP_DHCPV4_DATA,		"DHCPv4-Data" },
-    { HNCP_ASSIGNED_PREFIX,	"Assigned-Prefix" },
-    { HNCP_NODE_ADDRESS,		"Node-Address" },
-    { HNCP_DNS_DELEGATED_ZONE,		"DNS-Delegated-Zone" },
-    { HNCP_DOMAIN_NAME,		"Domain-Name" },
-    { HNCP_NODE_NAME,		"Node-Name" },
-    { HNCP_MANAGED_PSK,		"Managed-PSK" },
+#define RANGE_DNCP_RESERVED 0x10000
+#define RANGE_HNCP_UNASSIGNED 0x10001
+#define RANGE_DNCP_PRIVATE_USE 0x10002
+#define RANGE_DNCP_FUTURE_USE 0x10003
+
+static const struct tok type_values[] = {
+    { DNCP_REQUEST_NETWORK_STATE, "Request network state" },
+    { DNCP_REQUEST_NODE_STATE,    "Request node state" },
+    { DNCP_NODE_ENDPOINT,         "Node endpoint" },
+    { DNCP_NETWORK_STATE,         "Network state" },
+    { DNCP_NODE_STATE,            "Network node state" },
+    { DNCP_PEER,                  "Peer" },
+    { DNCP_KEEP_ALIVE_INTERVAL,   "Keep-alive interval" },
+    { DNCP_TRUST_VERDICT,         "Trust-Verdict" },
+    
+    { HNCP_VERSION,             "HNCP-Version" },
+    { HNCP_EXTERNAL_CONNECTION, "External-Connection" },
+    { HNCP_DELEGATED_PREFIX,    "Delegated-Prefix" },
+    { HNCP_PREFIX_POLICY,       "Prefix-Policy" },
+    { HNCP_DHCPV4_DATA,         "DHCPv4-Data" },
+    { HNCP_DHCPV6_DATA,         "DHCPv6-Data" },
+    { HNCP_ASSIGNED_PREFIX,     "Assigned-Prefix" },
+    { HNCP_NODE_ADDRESS,        "Node-Address" },
+    { HNCP_DNS_DELEGATED_ZONE,  "DNS-Delegated-Zone" },
+    { HNCP_DOMAIN_NAME,         "Domain-Name" },
+    { HNCP_NODE_NAME,           "Node-Name" },
+    { HNCP_MANAGED_PSK,         "Managed-PSK" },
+    
+    { RANGE_DNCP_RESERVED,    "Reserved" },
+    { RANGE_HNCP_UNASSIGNED,  "Unassigned" },
+    { RANGE_DNCP_PRIVATE_USE, "Private use" },
+    { RANGE_DNCP_FUTURE_USE,  "Future use" },
+    
     { 0, NULL}
 };
-*/
+
+
+static const struct tok hncp_type_values[] = {
+    { 0, NULL}
+};
+
+#define TYPE_OF(type)                                   \
+tok2str(dncp_type_values,                               \
+    tok2str(hncp_type_values,                           \
+        (44<=type&&type<=511)?"Unassigned type":        \
+        (768<=type&&type<=1023)?"Private-use message":  \
+        "Unknown message type",                         \
+    type),                                              \
+type)
 
 static const char *
 format_32(const unsigned char *data) //FIXME -> format_id() ?
@@ -127,16 +145,25 @@ hncp_print(netdissect_options *ndo,
 }
 
 static void
-hncp_print_rec(netdissect_options *ndo,
+hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
+    
+    uint32_t last_type = 0x10000;
+    int last_type_count = -1;
+    
     while (i < length) {
         const u_char *tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
         if (i+4>length) goto invalid;
 
         const uint16_t type = EXTRACT_16BITS(tlv);
+        uint32_t maskedtype =
+            (type==0)              ?RANGE_DNCP_RESERVED:
+            (44<=type&&type<=511)  ?RANGE_HNCP_UNASSIGNED:
+            (768<=type&&type<=1023)?RANGE_DNCP_PRIVATE_USE:
+                                    type;
         const uint16_t bodylen = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
         ND_TCHECK2(*value, bodylen);  //TODO
@@ -446,8 +473,9 @@ hncp_print_rec(netdissect_options *ndo,
                 } else
                     ND_PRINT((ndo, "(invalid)"));
                 l += 17;
-                //l += -l&3; //TODO [0-pad] ???
-                hncp_print_rec(ndo, value+l, bodylen-l, indent+1);
+                l += -l&3;
+                if (bodylen>=l)
+                    hncp_print_rec(ndo, value+l, bodylen-l, indent+1);
             }
         }
             break;
