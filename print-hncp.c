@@ -307,8 +307,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "External-Connection"));
             else {
                 ND_PRINT((ndo, "External-Connection (%u)", len+4));
-                if (len > 0)
-                    hncp_print_rec(ndo, value, len, indent+1);
+                hncp_print_rec(ndo, value, len, indent+1);
             }
         }
             break;
@@ -402,8 +401,7 @@ hncp_print_rec(netdissect_options *ndo,
                     safeputs(ndo, value + 6, prefix_len_byte);
                 }
 
-                if (len > 6 + prefix_len_byte)
-                    hncp_print_rec(ndo, value + 6 + prefix_len_byte, len - 6 - prefix_len_byte, indent+1);
+                hncp_print_rec(ndo, value + 6 + prefix_len_byte, len - 6 - prefix_len_byte, indent+1);
             }
         }
             break;
@@ -413,6 +411,13 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Node-Address"));
             else {
                 ND_PRINT((ndo, "Node-Address (%u)", len+4));
+                if (len < 20) goto invalid;
+                ND_PRINT((ndo, " EPID: %08x IP Adress: %s",
+                    EXTRACT_32BITS(value),
+                    ip6addr_string(ndo, value + 4)
+                ));
+
+                hncp_print_rec(ndo, value + 20, len - 20, indent+1);
             }
         }
             break;
@@ -442,7 +447,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Node-Name (%u)", len+4));
                 if (len < 17) goto invalid;
                 ND_PRINT((ndo, " IP Adress: %s Name: ",
-                    ip6addr_string(ndo,value)
+                    ip6addr_string(ndo, value)
                 ));
                 unsigned char l = value[16];
                 if (l<64) {
