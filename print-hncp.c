@@ -202,7 +202,6 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case DNCP_NODE_STATE: {
-            printf("A: %d %d %d\n", length, i, len); 
             if (!ndo->ndo_vflag)
                 ND_PRINT((ndo, "Node state"));
             else {
@@ -489,8 +488,7 @@ hncp_print_rec(netdissect_options *ndo,
             }
         }
 
-        i += 4 + len;
-        i += -i & 3;
+        i += 4 + len + (-len&3);
     }
     return;
 
