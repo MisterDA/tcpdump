@@ -11,33 +11,33 @@
 static const char tstr[] = "[|hncp]";
 
 /* TLVs */
-#define DNCP_RESERVED 0
-#define DNCP_REQUEST_NETWORK_STATE 1
-#define DNCP_REQUEST_NODE_STATE 2
-#define DNCP_NODE_ENDPOINT 3
-#define DNCP_NETWORK_STATE 4
-#define DNCP_NODE_STATE 5
-#define DNCP_PEER 8
-#define DNCP_KEEP_ALIVE_INTERVAL 9
-#define DNCP_TRUST_VERDICT 10
+#define DNCP_RESERVED               0
+#define DNCP_REQUEST_NETWORK_STATE  1
+#define DNCP_REQUEST_NODE_STATE     2
+#define DNCP_NODE_ENDPOINT          3
+#define DNCP_NETWORK_STATE          4
+#define DNCP_NODE_STATE             5
+#define DNCP_PEER                   8
+#define DNCP_KEEP_ALIVE_INTERVAL    9
+#define DNCP_TRUST_VERDICT         10
 
-#define HNCP_VERSION 32
-#define HNCP_EXTERNAL_CONNECTION 33
-#define HNCP_DELEGATED_PREFIX 34
-#define HNCP_PREFIX_POLICY 43
-#define HNCP_DHCPV4_DATA 37
-#define HNCP_DHCPV6_DATA 38
-#define HNCP_ASSIGNED_PREFIX 35
-#define HNCP_NODE_ADDRESS 36
-#define HNCP_DNS_DELEGATED_ZONE 39
-#define HNCP_DOMAIN_NAME 40
-#define HNCP_NODE_NAME 41
-#define HNCP_MANAGED_PSK 42
+#define HNCP_VERSION               32
+#define HNCP_EXTERNAL_CONNECTION   33
+#define HNCP_DELEGATED_PREFIX      34
+#define HNCP_PREFIX_POLICY         43
+#define HNCP_DHCPV4_DATA           37
+#define HNCP_DHCPV6_DATA           38
+#define HNCP_ASSIGNED_PREFIX       35
+#define HNCP_NODE_ADDRESS          36
+#define HNCP_DNS_DELEGATED_ZONE    39
+#define HNCP_DOMAIN_NAME           40
+#define HNCP_NODE_NAME             41
+#define HNCP_MANAGED_PSK           42
 
-#define RANGE_DNCP_RESERVED 0x10000
-#define RANGE_HNCP_UNASSIGNED 0x10001
+#define RANGE_DNCP_RESERVED    0x10000
+#define RANGE_HNCP_UNASSIGNED  0x10001
 #define RANGE_DNCP_PRIVATE_USE 0x10002
-#define RANGE_DNCP_FUTURE_USE 0x10003
+#define RANGE_DNCP_FUTURE_USE  0x10003
 
 static const struct tok type_values[] = {
     { DNCP_REQUEST_NETWORK_STATE, "Request network state" },
@@ -69,20 +69,6 @@ static const struct tok type_values[] = {
     
     { 0, NULL}
 };
-
-
-static const struct tok hncp_type_values[] = {
-    { 0, NULL}
-};
-
-#define TYPE_OF(type)                                   \
-tok2str(dncp_type_values,                               \
-    tok2str(hncp_type_values,                           \
-        (44<=type&&type<=511)?"Unassigned type":        \
-        (768<=type&&type<=1023)?"Private-use message":  \
-        "Unknown message type",                         \
-    type),                                              \
-type)
 
 static const char *
 format_32(const unsigned char *data) //FIXME -> format_id() ?
@@ -145,13 +131,13 @@ hncp_print(netdissect_options *ndo,
     hncp_print_rec(ndo, cp, length, 1);
 }
 
-static void
-hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
+void
+hncp_print_rec(netdissect_options *ndo, //////////////////////////////////////// REC
                const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
     
-    uint32_t last_type = 0x10000;
+    uint32_t last_type_mask = 0x10000;
     int last_type_count = -1;
     
     while (i < length) {
@@ -160,42 +146,61 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         if (i+4>length) goto invalid;
 
         const uint16_t type = EXTRACT_16BITS(tlv);
-        uint32_t maskedtype =
-            (type==0)              ?RANGE_DNCP_RESERVED:
-            (44<=type&&type<=511)  ?RANGE_HNCP_UNASSIGNED:
-            (768<=type&&type<=1023)?RANGE_DNCP_PRIVATE_USE:
-                                    type;
         const uint16_t bodylen = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
         ND_TCHECK2(*value, bodylen);  //TODO
         if (i+bodylen+4>length) goto invalid;
+        
+        uint32_t type_mask =
+            (type==0)              ?RANGE_DNCP_RESERVED:
+            (44<=type&&type<=511)  ?RANGE_HNCP_UNASSIGNED:
+            (768<=type&&type<=1023)?RANGE_DNCP_PRIVATE_USE:
+                                    type;
+        {
+            unsigned int i = 0;
+            char flag = 1;
+            while (1) {
+                unsigned int key = type_values[i].v;
+                if (key==type) {
+                    flag = 0;
+                    break;
+                }
+                if (key==0)
+                    break;
+                i++;
+            }
+            if (flag)
+                type_mask = RANGE_DNCP_FUTURE_USE;
+        }
 
         if (!ndo->ndo_vflag) {
             if (i)
-                ND_PRINT((ndo, ", "));
-            else
-                ND_PRINT((ndo, " "));
+                ND_PRINT((ndo, ","));
+            ND_PRINT((ndo," %s",
+                tok2str(type_values,"Easter Egg (42)",type_mask)
+            ));
         } else {
             ND_PRINT((ndo, "\n"));
             for (int t=indent; t>0; t--)
                 ND_PRINT((ndo, "\t"));
+            ND_PRINT((ndo,"%s (%u)",
+                tok2str(type_values,"Easter Egg (42)",type_mask),
+                bodylen+4
+            ));
         }
 
-        switch (type) {
+        switch (type_mask) { /////////////////////////////////////////////////// SWITCH
+
         case DNCP_REQUEST_NETWORK_STATE: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Request network state"));
-            else {
-                ND_PRINT((ndo, "Request network state (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
+                if (bodylen != 0) goto invalid;
+                //TODO:HIDDEN BYTES
             }
         }
             break;
 
         case DNCP_REQUEST_NODE_STATE: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Request node state"));
-            else {
-                ND_PRINT((ndo, "Request Node state (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen != 4) goto invalid;
                 ND_PRINT((ndo, " NID: %s", format_32(value)));
             }
@@ -203,10 +208,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_NODE_ENDPOINT: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node endpoint"));
-            else {
-                ND_PRINT((ndo, "Node endpoint (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen != 8) goto invalid;
                 ND_PRINT((ndo, " NID: %s EPID: %08x",
                     format_32(value),
@@ -217,10 +219,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_NETWORK_STATE: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Network state"));
-            else {
-                ND_PRINT((ndo, "Network state (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen != 8) goto invalid;
                 ND_PRINT((ndo, " Hash: %016lx",
                     EXTRACT_64BITS(value)
@@ -230,10 +229,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_NODE_STATE: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node state"));
-            else {
-                ND_PRINT((ndo, "Node state (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen < 20) goto invalid;
                 ND_PRINT((ndo, " NID: %s Seq-num: %u Interval: %s Hash: %016lx",
                     format_32(value),
@@ -250,10 +246,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_PEER: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Peer"));
-            else {
-                ND_PRINT((ndo, "Peer (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen != 12) goto invalid;
                 ND_PRINT((ndo, " Peer-NID: %s Peer-EPID: %08x EPID: %08x",
                     format_32(value),
@@ -265,10 +258,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_KEEP_ALIVE_INTERVAL: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Keep-alive interval"));
-            else {
-                ND_PRINT((ndo, "Keep-alive interval (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen < 8) goto invalid;
                 ND_PRINT((ndo, " EPID: %08x Interval: %s",
                     EXTRACT_32BITS(value),
@@ -279,10 +269,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case DNCP_TRUST_VERDICT: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Trust-Verdict"));
-            else {
-                ND_PRINT((ndo, "Trust-Verdict (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen <= 36) goto invalid;
                 ND_PRINT((ndo, " Verdict: %u Fingerprint: %s Common Name: ",
                     *value, // Verdict
@@ -297,12 +284,9 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
 
         // FIXME: check the MPHL and the User-agent
         case HNCP_VERSION: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "HNCP-Version"));
-            else {
+            if (ndo->ndo_vflag) {
                 uint16_t capabilities;
                 uint8_t M, P, H, L;
-                ND_PRINT((ndo, "HNCP-Version (%u)", bodylen+4));
                 if (bodylen < 5) goto invalid;
                 capabilities = EXTRACT_16BITS(value + 2);
                 M = (uint8_t)((capabilities >> 12) & 0xf);
@@ -319,22 +303,16 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_EXTERNAL_CONNECTION: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "External-Connection"));
-            else {
-                ND_PRINT((ndo, "External-Connection (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 hncp_print_rec(ndo, value, bodylen, indent+1);
             }
         }
             break;
 
         case HNCP_DELEGATED_PREFIX: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Delegated-Prefix"));
-            else {
+            if (ndo->ndo_vflag) {
                 uint8_t prefix_len;
                 uint prefix_len_byte;
-                ND_PRINT((ndo, "Delegated-Prefix (%u)", bodylen+4));
                 if (bodylen < 9) goto invalid;
                 prefix_len = value[4];
                 prefix_len_byte = (prefix_len + 7) / 8;
@@ -346,31 +324,34 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                 // FIXME: change prefix from (strange) string to IPv6 prefix
                 safeputs(ndo, value + 9, prefix_len_byte);
 
-                hncp_print_rec(ndo, value + 5 + prefix_len_byte, bodylen - 5 - prefix_len_byte, indent+1);
+                prefix_len_byte += 5;
+                hncp_print_rec(ndo, value+prefix_len_byte, bodylen-prefix_len_byte, indent+1);
             }
         }
             break;
 
         case HNCP_PREFIX_POLICY: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Prefix-Policy"));
-            else {
+            if (ndo->ndo_vflag) {
                 uint8_t policy;
-                ND_PRINT((ndo, "Prefix-Policy (%u)", bodylen+4));
                 if (bodylen < 1) goto invalid;
                 policy = value[0];
+                ND_PRINT((ndo, " Type: "));
                 if (policy == 0) {
-                    if (length != 5 || bodylen != 1) goto invalid;
+                    if (bodylen != 1) goto invalid;
+                    ND_PRINT((ndo, "Internet connectivity"));
+                    //TODO:HIDDEN BYTES
                 } else if (policy >= 1 && policy <= 128) {
-
+                    ND_PRINT((ndo, "Dest-Prefix: "));///////////////////////TODO///////////////////PREFIX
                 } else if (policy == 129) {
-
+                    ND_PRINT((ndo, "DNS: "));
                 } else if (policy == 130) {
-
+                    
                 } else if (policy == 131) {
-                    if (length != 5 || bodylen != 1) goto invalid;
+                    if (bodylen != 1) goto invalid;
+                    ND_PRINT((ndo, "Restrictive assignment"));
+                    //TODO:HIDDEN BYTES
                 } else if (policy >= 132) {
-                    // Reserved for future additions
+                    ND_PRINT((ndo, "(invalid)"));// Reserved for future additions
                 }
             }
         }
@@ -378,10 +359,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
 
         // TODO
         case HNCP_DHCPV4_DATA: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DHCPv4-Data"));
-            else {
-                ND_PRINT((ndo, "DHCPv4-Data (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen == 0) goto invalid;
             }
         }
@@ -389,22 +367,16 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
 
         // TODO
         case HNCP_DHCPV6_DATA: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DHCPv6-Data"));
-            else {
-                ND_PRINT((ndo, "DHCPv6-Data (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen == 0) goto invalid;
             }
         }
             break;
 
         case HNCP_ASSIGNED_PREFIX: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Assigned-Prefix"));
-            else {
+            if (ndo->ndo_vflag) {
                 uint8_t rsv, prty, prefix_len;
                 uint prefix_len_byte;
-                ND_PRINT((ndo, "Assigned-Prefix (%u)", bodylen+4));
                 if (bodylen < 6) goto invalid;
                 rsv = (uint8_t)((value[4] >> 4) & 0xf);
                 prty = (uint8_t)(value[4] & 0xf);
@@ -425,10 +397,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_NODE_ADDRESS: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node-Address"));
-            else {
-                ND_PRINT((ndo, "Node-Address (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen < 20) goto invalid;
                 ND_PRINT((ndo, " EPID: %08x IP Adress: %s",
                     EXTRACT_32BITS(value),
@@ -441,11 +410,8 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_DNS_DELEGATED_ZONE: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "DNS-Delegated-Zone"));
-            else {
+            if (ndo->ndo_vflag) {
                 uint8_t rsv, L, B, S;
-                ND_PRINT((ndo, "DNS-Delegated-Zone (%u)", bodylen+4));
                 if (bodylen < 17) goto invalid;
                 rsv = (uint8_t)(value[16] & 0xf8);
                 L = (uint8_t)((value[16] >> 2 & 0x1));
@@ -463,10 +429,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_DOMAIN_NAME: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Domain-Name"));
-            else {
-                ND_PRINT((ndo, "Domain-Name (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen == 0) goto invalid;
                 ND_PRINT((ndo, " Domain: "));
                 safeputs(ndo, value, bodylen);
@@ -475,10 +438,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_NODE_NAME: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Node-Name"));
-            else {
-                ND_PRINT((ndo, "Node-Name (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen < 17) goto invalid;
                 unsigned char l = value[16];
                 if (bodylen < 17+l) goto invalid;
@@ -500,10 +460,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             break;
 
         case HNCP_MANAGED_PSK: {
-            if (!ndo->ndo_vflag)
-                ND_PRINT((ndo, "Managed-PSK"));
-            else {
-                ND_PRINT((ndo, "Managed-PSK (%u)", bodylen+4));
+            if (ndo->ndo_vflag) {
                 if (bodylen < 32) goto invalid;
                 ND_PRINT((ndo, " PSK: %s",
                     format_256(value)
@@ -513,27 +470,34 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         }
             break;
 
-        default:
-            if (type == DNCP_RESERVED) {
-                ND_PRINT((ndo, "Reserved"));
-                if (ndo->ndo_vflag)
-                    ND_PRINT((ndo, " - type %u (%u)", type, bodylen+4));
-            } else if ((11 <= type && type <= 31)
-                    || (44 <= type && type <= 767)) {
-                ND_PRINT((ndo, "Unassigned"));
-                if (ndo->ndo_vflag)
-                    ND_PRINT((ndo, " - type %u (%u)", type, bodylen+4));
-            } else if (768 <= type && type <= 1023) {
-                if (!ndo->ndo_vflag)
-                    ND_PRINT((ndo, "Reserved"));
-                else
-                    ND_PRINT((ndo, "Reserved for Private Use - type %u (%u)", type, bodylen+4));
-            } else if (type == 6 || type == 7 || type >= 1024) {
-                if (!ndo->ndo_vflag)
-                    ND_PRINT((ndo, "Reserved"));
-                else
-                    ND_PRINT((ndo, "Reserved for future use - type %u (%u)", type, bodylen+4));
-            }
+        case RANGE_DNCP_RESERVED: {
+        }
+            break;
+
+        case RANGE_HNCP_UNASSIGNED: {
+            if (ndo->ndo_vflag)
+                ND_PRINT((ndo, " (type=%u)", type));
+        }
+            break;
+
+        case RANGE_DNCP_PRIVATE_USE: {
+            if (ndo->ndo_vflag)
+                ND_PRINT((ndo, " (type=%u)", type));
+            //TODO:HIDDEN BYTES
+        }
+            break;
+
+        case RANGE_DNCP_FUTURE_USE: {
+            if (ndo->ndo_vflag)
+                ND_PRINT((ndo, " (type=%u)", type));
+        }
+        } ////////////////////////////////////////////////////////////////////// SWITCH END
+
+        if (last_type_mask==type_mask)
+            last_type_count++;
+        else {
+            last_type_mask = type_mask;
+            last_type_count = 0;
         }
 
         i += 4 + bodylen + (-bodylen&3);
@@ -545,7 +509,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         ND_PRINT((ndo, " %s", tstr));
     } else {
         ND_PRINT((ndo, "\n"));
-        for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t"));
+        for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t")); //FIXME:CHECK
         ND_PRINT((ndo, "%s", tstr));
     }
     return;
