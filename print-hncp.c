@@ -146,11 +146,14 @@ hncp_print_rec(netdissect_options *ndo,
         if (i+len+4>length) goto invalid;
 
         if (!ndo->ndo_vflag) {
-            if (i) ND_PRINT((ndo, ", "));
-            else ND_PRINT((ndo, " "));
+            if (i) 
+                ND_PRINT((ndo, ", "));
+            else 
+                ND_PRINT((ndo, " "));
         } else {
             ND_PRINT((ndo, "\n"));
-            for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t"));
+            for (int t=indent; t>0; t--)
+                ND_PRINT((ndo, "\t"));
         }
 
         switch (type) {
@@ -215,21 +218,6 @@ hncp_print_rec(netdissect_options *ndo,
                 ));
                 if (len > 20) {
                     ND_PRINT((ndo, " Data:"));
-
-                    /* //FIXME: strange comportement
-                    int i = 20; // PRINT NESTED TLVs
-                    while (i<len) {
-                        const uint16_t type = EXTRACT_16BITS(value+i);
-                        const uint16_t len = EXTRACT_16BITS(value+i + 2);
-                        ND_PRINT((ndo, "\n\t\t%04x %04x ", type, len));
-                        //ND_PRINT((ndo, "\n\t\t%02x%02x %02x%02x ", value[i], value[i+1], value[i+2], value[i+3] ));
-                        for (int j = 0; j < len; j++) {
-                            ND_PRINT((ndo, "%02x", value[i+4+j]));
-                        }
-                        i += len+4;
-                    }
-                    //*/
-
                     hncp_print_rec(ndo, value+20, len-20, indent+1);
                 }
             }
@@ -315,8 +303,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "External-Connection"));
             else {
                 ND_PRINT((ndo, "External-Connection (%u)", len+4));
-                if (len > 0)
-                    hncp_print_rec(ndo, value, len, indent+1);
+                hncp_print_rec(ndo, value, len, indent+1);
             }
         }
             break;
@@ -442,17 +429,19 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 ND_PRINT((ndo, "Node-Name (%u)", len+4));
                 if (len < 17) goto invalid;
-                ND_PRINT((ndo, " IP Adress: %s Name: ",
+                unsigned char l = value[16];
+                if (len < 17+l) goto invalid;
+                ND_PRINT((ndo, " IP-Adress: %s Name: ",
                     ip6addr_string(ndo,value)
                 ));
-                unsigned char l = value[16];
                 if (l<64) {
-                    for (int i=0; i<l; i++)
-                        ND_PRINT((ndo, "%c", value[17+i]));
+                    safeputchar(ndo, '"');
+                    safeputs(ndo,value+17,l);
+                    safeputchar(ndo, '"');
                 } else
                     ND_PRINT((ndo, "(invalid)"));
                 l += 17;
-                //l += -l&3; // TODO 0-pad ???
+                //l += -l&3; //TODO [0-pad] ???
                 hncp_print_rec(ndo, value+l, len-l, indent+1);
             }
         }
