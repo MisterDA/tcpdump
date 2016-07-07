@@ -500,7 +500,7 @@ hncp_print_rec(netdissect_options *ndo,
                     ND_PRINT((ndo, "Reserved"));
                 else
                     ND_PRINT((ndo, "Reserved for Private Use - type %u (%u)", type, bodylen+4));
-            } else {
+            } else if (type == 6 || type == 7 || type >= 1024) {
                 if (!ndo->ndo_vflag)
                     ND_PRINT((ndo, "Reserved"));
                 else
