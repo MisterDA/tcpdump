@@ -4,11 +4,11 @@
 
 #include <netdissect-stdinc.h>
 
+#include <stdlib.h>
+
 #include "netdissect.h"
 #include "addrtoname.h"
 #include "extract.h"
-
-static const char tstr[] = "[|hncp]";
 
 /* TLVs */
 #define DNCP_RESERVED               0
@@ -70,8 +70,10 @@ static const struct tok type_values[] = {
     { 0, NULL}
 };
 
+#define DHCPv4
+
 static const char *
-format_32(const unsigned char *data) //FIXME -> format_id() ?
+format_nid(const unsigned char *data)
 {
     static char buf[4][11+5];
     static int i = 0;
@@ -202,7 +204,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         case DNCP_REQUEST_NODE_STATE: {
             if (ndo->ndo_vflag) {
                 if (bodylen != 4) goto invalid;
-                ND_PRINT((ndo, " NID: %s", format_32(value)));
+                ND_PRINT((ndo, " NID: %s", format_nid(value)));
             }
         }
             break;
@@ -211,7 +213,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             if (ndo->ndo_vflag) {
                 if (bodylen != 8) goto invalid;
                 ND_PRINT((ndo, " NID: %s EPID: %08x",
-                    format_32(value),
+                    format_nid(value),
                     EXTRACT_32BITS(value + 4)
                 ));
             }
@@ -231,8 +233,8 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         case DNCP_NODE_STATE: {
             if (ndo->ndo_vflag) {
                 if (bodylen < 20) goto invalid;
-                ND_PRINT((ndo, " NID: %s Seq-num: %u Interval: %s Hash: %016lx",
-                    format_32(value),
+                ND_PRINT((ndo, " NID: %s Seq-num: %u Interval: %sms Hash: %016lx",
+                    format_nid(value),
                     EXTRACT_32BITS(value + 4),
                     format_interval(EXTRACT_32BITS(value + 8)),
                     EXTRACT_64BITS(value + 12)
@@ -248,8 +250,8 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         case DNCP_PEER: {
             if (ndo->ndo_vflag) {
                 if (bodylen != 12) goto invalid;
-                ND_PRINT((ndo, " Peer-NID: %s Peer-EPID: %08x EPID: %08x",
-                    format_32(value),
+                ND_PRINT((ndo, " Peer-NID: %s Peer-EPID: %08x Local-EPID: %08x",
+                    format_nid(value),
                     EXTRACT_32BITS(value + 4),
                     EXTRACT_32BITS(value + 8)
                 ));
@@ -272,12 +274,10 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             if (ndo->ndo_vflag) {
                 if (bodylen <= 36) goto invalid;
                 ND_PRINT((ndo, " Verdict: %u Fingerprint: %s Common Name: ",
-                    *value, // Verdict
+                    *value,
                     // EXTRACT_24BITS(value + 1), // Reserved
-                    format_256(value + 4) // Fingerprint
-                ));
-                for (int i = 36; i < bodylen; i++) // Common Name
-                    ND_PRINT((ndo, "%x", value[i]));
+                    format_256(value + 4)));
+                safeputs(ndo, value + 36, bodylen - 36);
             }
         }
             break;
@@ -294,7 +294,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                 H = (uint8_t)((capabilities >> 4) & 0xf);
                 L = (uint8_t)(capabilities & 0xf);
                 ND_PRINT((ndo, " M: %u P: %u H: %u L: %u User-agent: ",
-                    // EXTRACT_16BITS(value), // reserved
+                    // EXTRACT_16BITS(value), // Reserved
                     M, P, H, L
                 ));
                 safeputs(ndo, value + 4, bodylen - 4);
@@ -322,7 +322,11 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                     format_interval(EXTRACT_32BITS(value + 4))
                 ));
                 // FIXME: change prefix from (strange) string to IPv6 prefix
-                safeputs(ndo, value + 9, prefix_len_byte);
+                //safeputs(ndo, value + 9, prefix_len_byte);
+                char *buf = malloc(sizeof(char) * 23);
+                decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
+                safeputs(ndo, (const u_char*)buf, prefix_len_byte);
+                free(buf);
 
                 prefix_len_byte += 5;
                 hncp_print_rec(ndo, value+prefix_len_byte, bodylen-prefix_len_byte, indent+1);
@@ -388,7 +392,12 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                 ));
                 if (prefix_len > 0) {
                     ND_PRINT((ndo, " Prefix: "));
-                    safeputs(ndo, value + 6, prefix_len_byte);
+                    // FIXME: change prefix from (strange) string to IPv6 prefix
+                    // safeputs(ndo, value + 6, prefix_len_byte);
+                    char *buf = malloc(sizeof(char) * 23);
+                    decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
+                    safeputs(ndo, (const u_char*)buf, prefix_len_byte);
+                    free(buf);
                 }
 
                 hncp_print_rec(ndo, value + 6 + prefix_len_byte, bodylen - 6 - prefix_len_byte, indent+1);
@@ -505,13 +514,11 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
     return;
 
  trunc:
-    if (!ndo->ndo_vflag) {
-        ND_PRINT((ndo, " %s", tstr));
-    } else {
+    if (ndo->ndo_vflag) {
         ND_PRINT((ndo, "\n"));
-        for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t")); //FIXME:CHECK
-        ND_PRINT((ndo, "%s", tstr));
+        for (int t=indent; t>0; t--) ND_PRINT((ndo, "\t"));
     }
+    ND_PRINT((ndo, "%s", "[|hncp]"));
     return;
 
  invalid:
