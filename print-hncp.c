@@ -4,9 +4,6 @@
 
 #include <netdissect-stdinc.h>
 
-#include <stdlib.h>
-#include <string.h>
-
 #include "netdissect.h"
 #include "addrtoname.h"
 #include "extract.h"
@@ -289,23 +286,18 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 uint16_t capabilities;
                 uint8_t M, P, H, L;
-                u_char *user_agent = NULL;
                 ND_PRINT((ndo, "HNCP-Version (%u)", len+4));
                 if (len < 5) goto invalid;
                 capabilities = EXTRACT_16BITS(value + 2);
-                M = (uint8_t)((capabilities << 12) & 0xf);
-                P = (uint8_t)((capabilities << 8) & 0xf);
-                H = (uint8_t)((capabilities << 4) & 0xf);
+                M = (uint8_t)((capabilities >> 12) & 0xf);
+                P = (uint8_t)((capabilities >> 8) & 0xf);
+                H = (uint8_t)((capabilities >> 4) & 0xf);
                 L = (uint8_t)capabilities & 0xf;
-                user_agent = malloc(len - 3);
-                memcpy(user_agent, value + 4, len - 4);
-                user_agent[len - 3] = '\0';
-                ND_PRINT((ndo, " M: %d P: %d H: %d L: %d User-agent: %s",
+                ND_PRINT((ndo, " M: %d P: %d H: %d L: %d User-agent: ",
                     // EXTRACT_16BITS(value), // reserved
-                    M, P, H, L,
-                    user_agent
+                    M, P, H, L
                 ));
-                free(user_agent);
+                safeputs(ndo, value + 4, len - 4);
             }
         }
             break;
@@ -327,22 +319,17 @@ hncp_print_rec(netdissect_options *ndo,
             else {
                 uint8_t prefix_len;
                 uint prefix_len_byte;
-                u_char *prefix;
                 ND_PRINT((ndo, "Delegated-Prefix (%u)", len+4));
                 if (len < 9) goto invalid;
                 prefix_len = value[4];
                 prefix_len_byte = (prefix_len + 7) / 8;
 
-                // FIXME: change prefix from (strange) string to IPv6 prefix
-                prefix = malloc(prefix_len_byte + 1);
-                memcpy(prefix, value + 5, prefix_len_byte);
-                prefix[prefix_len_byte] = '\0';
-                ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: %s",
+                ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: ",
                     format_interval(EXTRACT_32BITS(value)),
-                    format_interval(EXTRACT_32BITS(value + 4)),
-                    prefix
+                    format_interval(EXTRACT_32BITS(value + 4))
                 ));
-                free(prefix);
+                // FIXME: change prefix from (strange) string to IPv6 prefix
+                safeputs(ndo, value + 9, prefix_len_byte);
 
                 hncp_print_rec(ndo, value + 5 + prefix_len_byte, len - 5 - prefix_len_byte, indent+1);
             }
@@ -368,7 +355,7 @@ hncp_print_rec(netdissect_options *ndo,
                 } else if (policy == 131) {
                     if (length != 5 || len != 1) goto invalid;
                 } else if (policy >= 132) {
-                    // Reserved for future additins
+                    // Reserved for future additions
                 }
             }
         }
@@ -399,12 +386,24 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Assigned-Prefix"));
             else {
                 uint8_t rsv, prty, prefix_len;
+                uint prefix_len_byte;
                 ND_PRINT((ndo, "Assigned-Prefix (%u)", len+4));
                 if (len < 6) goto invalid;
-
-                ND_PRINT((ndo, " EPID: %08x",
-                    EXTRACT_32BITS(value)
+                rsv = (uint8_t)((value[4] >> 4) & 0xf);
+                prty = (uint8_t)(value[4] & 0xf);
+                prefix_len = (uint8_t)value[5];
+                prefix_len_byte = (prefix_len + 7) / 8;
+                ND_PRINT((ndo, " EPID: %08x Rsv: %d Prty: %d Prefix len: %d",
+                    EXTRACT_32BITS(value),
+                    rsv, prty, prefix_len
                 ));
+                if (prefix_len > 0) {
+                    ND_PRINT((ndo, " Prefix: "));
+                    safeputs(ndo, value + 6, prefix_len_byte);
+                }
+
+                if (len > 6 + prefix_len_byte)
+                    hncp_print_rec(ndo, value + 6 + prefix_len_byte, len - 6 - prefix_len_byte, indent+1);
             }
         }
             break;
