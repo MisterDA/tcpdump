@@ -48,7 +48,7 @@ static const struct tok type_values[] = {
     { DNCP_PEER,                  "Peer" },
     { DNCP_KEEP_ALIVE_INTERVAL,   "Keep-alive interval" },
     { DNCP_TRUST_VERDICT,         "Trust-Verdict" },
-    
+
     { HNCP_VERSION,             "HNCP-Version" },
     { HNCP_EXTERNAL_CONNECTION, "External-Connection" },
     { HNCP_DELEGATED_PREFIX,    "Delegated-Prefix" },
@@ -61,16 +61,24 @@ static const struct tok type_values[] = {
     { HNCP_DOMAIN_NAME,         "Domain-Name" },
     { HNCP_NODE_NAME,           "Node-Name" },
     { HNCP_MANAGED_PSK,         "Managed-PSK" },
-    
+
     { RANGE_DNCP_RESERVED,    "Reserved" },
     { RANGE_HNCP_UNASSIGNED,  "Unassigned" },
     { RANGE_DNCP_PRIVATE_USE, "Private use" },
     { RANGE_DNCP_FUTURE_USE,  "Future use" },
-    
+
     { 0, NULL}
 };
 
-#define DHCPv4
+#define DHCPV4_PAD 0
+#define DHCPV4_DOMAIN_SERVER 4
+#define DHCPV4_NTP_SERVERS 42
+
+#define DHCPV6_23 23
+#define DHCPV6_24 24
+#define DHCPV6_31 31
+#define DHCPV6_199 199
+
 
 static const char *
 format_nid(const unsigned char *data)
@@ -133,15 +141,53 @@ hncp_print(netdissect_options *ndo,
     hncp_print_rec(ndo, cp, length, 1);
 }
 
+static void dhcpv4_print(netdissect_options *ndo,
+                       const u_char *cp, u_int length, int indent)
+{
+    u_int i = 0;
+
+    while (i < length) {
+        const u_char *tlv = cp + i;
+        const uint8_t type = (uint8_t)tlv[0]; // convert to hw endianness ?
+        const uint8_t bodylen = (uint8_t)tlv[1];
+
+        safeputchar(ndo, '\n');
+        for (int t=indent; t>0; t--)
+            safeputchar(ndo, '\t');
+
+        switch (type) {
+        } /* switch */
+    } /* while */
+}
+
+static void dhcpv6_print(netdissect_options *ndo,
+                       const u_char *cp, u_int length, int indent)
+{
+    u_int i = 0;
+
+    while (i < length) {
+        const u_char *tlv = cp + i;
+        const uint8_t type = (uint8_t)tlv[0]; // convert to hw endianness ?
+        const uint8_t bodylen = (uint8_t)tlv[1];
+
+        safeputchar(ndo, '\n');
+        for (int t=indent; t>0; t--)
+            safeputchar(ndo, '\t');
+
+        switch (type) {
+        } /* switch */
+    } /* while */
+}
+
 void
-hncp_print_rec(netdissect_options *ndo, //////////////////////////////////////// REC
+hncp_print_rec(netdissect_options *ndo,
                const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
-    
+
     uint32_t last_type_mask = 0x10000;
     int last_type_count = -1;
-    
+
     while (i < length) {
         const u_char *tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
@@ -152,7 +198,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
         const u_char *value = tlv + 4;
         ND_TCHECK2(*value, bodylen);  //TODO
         if (i+bodylen+4>length) goto invalid;
-        
+
         uint32_t type_mask =
             (type==0)              ?RANGE_DNCP_RESERVED:
             (44<=type&&type<=511)  ?RANGE_HNCP_UNASSIGNED:
@@ -182,16 +228,16 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                 tok2str(type_values,"Easter Egg (42)",type_mask)
             ));
         } else {
-            ND_PRINT((ndo, "\n"));
+            safeputchar(ndo, '\n');
             for (int t=indent; t>0; t--)
-                ND_PRINT((ndo, "\t"));
+                safeputchar(ndo, '\t');
             ND_PRINT((ndo,"%s (%u)",
                 tok2str(type_values,"Easter Egg (42)",type_mask),
                 bodylen+4
             ));
         }
 
-        switch (type_mask) { /////////////////////////////////////////////////// SWITCH
+        switch (type_mask) {
 
         case DNCP_REQUEST_NETWORK_STATE: {
             if (ndo->ndo_vflag) {
@@ -345,11 +391,11 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
                     ND_PRINT((ndo, "Internet connectivity"));
                     //TODO:HIDDEN BYTES
                 } else if (policy >= 1 && policy <= 128) {
-                    ND_PRINT((ndo, "Dest-Prefix: "));///////////////////////TODO///////////////////PREFIX
+                    ND_PRINT((ndo, "Dest-Prefix: ")); // TODO Prefix
                 } else if (policy == 129) {
                     ND_PRINT((ndo, "DNS: "));
                 } else if (policy == 130) {
-                    
+
                 } else if (policy == 131) {
                     if (bodylen != 1) goto invalid;
                     ND_PRINT((ndo, "Restrictive assignment"));
@@ -500,7 +546,7 @@ hncp_print_rec(netdissect_options *ndo, ////////////////////////////////////////
             if (ndo->ndo_vflag)
                 ND_PRINT((ndo, " (type=%u)", type));
         }
-        } ////////////////////////////////////////////////////////////////////// SWITCH END
+    } /* switch */
 
         if (last_type_mask==type_mask)
             last_type_count++;
