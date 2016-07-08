@@ -70,14 +70,13 @@ static const struct tok type_values[] = {
     { 0, NULL}
 };
 
-#define DHCPV4_PAD 0
-#define DHCPV4_DOMAIN_SERVER 4
-#define DHCPV4_NTP_SERVERS 42
+#define DH4_PAD 0
+#define DH4_DNS_SERVERS 6
+#define DH4_NTP_SERVERS 42
 
-#define DHCPV6_23 23
-#define DHCPV6_24 24
-#define DHCPV6_31 31
-#define DHCPV6_199 199
+#define DH6OPT_DNS_SERVERS 23
+#define DH6OPT_DOMAIN_LIST 24
+#define DH6OPT_SNTP_SERVERS 31
 
 
 static const char *
@@ -148,14 +147,24 @@ static void dhcpv4_print(netdissect_options *ndo,
 
     while (i < length) {
         const u_char *tlv = cp + i;
-        const uint8_t type = (uint8_t)tlv[0]; // convert to hw endianness ?
+        const uint8_t type = (uint8_t)tlv[0];
         const uint8_t bodylen = (uint8_t)tlv[1];
+        const u_char *value = tlv + 2;
 
         safeputchar(ndo, '\n');
         for (int t=indent; t>0; t--)
             safeputchar(ndo, '\t');
 
         switch (type) {
+
+        case DH4_DNS_SERVERS: {
+            if (bodylen < 4 || bodylen % 4)
+                // print error
+                break;
+            for (int i = 0; i < bodylen; i += 4)
+                ND_PRINT((ndo, " %s", ipaddr_string(ndo, tlv + 1)));
+        }
+            break;
         } /* switch */
     } /* while */
 }
@@ -167,8 +176,9 @@ static void dhcpv6_print(netdissect_options *ndo,
 
     while (i < length) {
         const u_char *tlv = cp + i;
-        const uint8_t type = (uint8_t)tlv[0]; // convert to hw endianness ?
-        const uint8_t bodylen = (uint8_t)tlv[1];
+        const uint16_t type = EXTRACT_16BITS(tlv);
+        const uint16_t bodylen = EXTRACT_16BITS(tlv + 2);
+        const u_char *value = tlv + 4;
 
         safeputchar(ndo, '\n');
         for (int t=indent; t>0; t--)
