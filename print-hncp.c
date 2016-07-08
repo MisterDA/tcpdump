@@ -10,6 +10,18 @@
 #include "addrtoname.h"
 #include "extract.h"
 
+static void
+hncp_print_rec(netdissect_options *ndo,
+               const u_char *cp, u_int length, int indent);
+
+void
+hncp_print(netdissect_options *ndo,
+           const u_char *cp, u_int length)
+{
+    ND_PRINT((ndo, "hncp (%d)", length));
+    hncp_print_rec(ndo, cp, length, 1);
+}
+
 /* TLVs */
 #define DNCP_RESERVED               0
 #define DNCP_REQUEST_NETWORK_STATE  1
@@ -129,19 +141,8 @@ format_interval(const uint16_t i)
 }
 
 static void
-hncp_print_rec(netdissect_options *ndo,
-               const u_char *cp, u_int length, int indent);
-
-void
-hncp_print(netdissect_options *ndo,
-           const u_char *cp, u_int length)
-{
-    ND_PRINT((ndo, "hncp (%d)", length));
-    hncp_print_rec(ndo, cp, length, 1);
-}
-
-static void dhcpv4_print(netdissect_options *ndo,
-                       const u_char *cp, u_int length, int indent)
+dhcpv4_print(netdissect_options *ndo,
+             const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
 
@@ -169,8 +170,9 @@ static void dhcpv4_print(netdissect_options *ndo,
     } /* while */
 }
 
-static void dhcpv6_print(netdissect_options *ndo,
-                       const u_char *cp, u_int length, int indent)
+static void
+dhcpv6_print(netdissect_options *ndo,
+             const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
 
