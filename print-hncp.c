@@ -5,6 +5,7 @@
 #include <netdissect-stdinc.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "netdissect.h"
 #include "addrtoname.h"
@@ -12,18 +13,17 @@
 
 static void
 hncp_print_rec(netdissect_options *ndo,
-               const u_char *cp, u_int length, int indent);
+              const u_char *cp, u_int length, int indent);
 
 void
 hncp_print(netdissect_options *ndo,
-           const u_char *cp, u_int length)
+              const u_char *cp, u_int length)
 {
     ND_PRINT((ndo, "hncp (%d)", length));
     hncp_print_rec(ndo, cp, length, 1);
 }
 
 /* TLVs */
-#define DNCP_RESERVED               0
 #define DNCP_REQUEST_NETWORK_STATE  1
 #define DNCP_REQUEST_NODE_STATE     2
 #define DNCP_NODE_ENDPOINT          3
@@ -152,9 +152,9 @@ dhcpv4_print(netdissect_options *ndo,
         const uint8_t bodylen = (uint8_t)tlv[1];
         const u_char *value = tlv + 2;
 
-        safeputchar(ndo, '\n');
+        ND_PRINT((ndo, "\n"));
         for (int t=indent; t>0; t--)
-            safeputchar(ndo, '\t');
+            ND_PRINT((ndo, "\t"));
 
         switch (type) {
 
@@ -172,7 +172,7 @@ dhcpv4_print(netdissect_options *ndo,
 
 static void
 dhcpv6_print(netdissect_options *ndo,
-             const u_char *cp, u_int length, int indent)
+              const u_char *cp, u_int length, int indent)
 {
     u_int i = 0;
 
@@ -182,21 +182,50 @@ dhcpv6_print(netdissect_options *ndo,
         const uint16_t bodylen = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
 
-        safeputchar(ndo, '\n');
+        ND_PRINT((ndo, "\n"));
         for (int t=indent; t>0; t--)
-            safeputchar(ndo, '\t');
+            ND_PRINT((ndo, "\t"));
 
         switch (type) {
         } /* switch */
     } /* while */
 }
 
+static int
+is_in_line(netdissect_options *ndo, int indent)
+{
+    return indent-1 >= ndo->ndo_vflag && ndo->ndo_vflag < 3;
+}
+
+static void
+print_type_in_line(netdissect_options *ndo,
+              uint32_t type, int count, int indent, int *first_one)
+{
+    if (count>0) {
+        if (*first_one) {
+            *first_one = 0;
+            if (indent>1) {
+                ND_PRINT((ndo, "\n"));
+                for (int t=indent; t>0; t--)
+                    ND_PRINT((ndo, "\t"));
+            } else
+                ND_PRINT((ndo, " "));
+        } else
+            ND_PRINT((ndo, ", "));
+        ND_PRINT((ndo, "%s",
+            tok2str(type_values, "Easter Egg", type)
+        ));
+        if (count>1)
+            ND_PRINT((ndo, " (x%d)", count));
+    }
+}
+
 void
 hncp_print_rec(netdissect_options *ndo,
-               const u_char *cp, u_int length, int indent)
+              const u_char *cp, u_int length, int indent)
 {
-    const int in_line = !ndo->ndo_vflag; /* print in one line */
-    int non_first = 0;
+    const int in_line = is_in_line(ndo, indent); /* print in one line */
+    int first_one = 1;
 
     u_int i = 0;
 
@@ -232,22 +261,12 @@ hncp_print_rec(netdissect_options *ndo,
             }
         }
 
-        if (in_line) { /* non verbose : in line */
+        if (in_line) {
 
             if (last_type_mask==type_mask)
                 last_type_count++;
             else {
-                if (last_type_count>0) {
-                    if (non_first)
-                        ND_PRINT((ndo, ","));
-                    else
-                        non_first = 1;
-                    ND_PRINT((ndo, " %s",
-                        tok2str(type_values, "Easter Egg", last_type_mask)
-                    ));
-                    if (last_type_count>1)
-                        ND_PRINT((ndo, " (x%d)", last_type_count));
-                }
+                print_type_in_line(ndo, last_type_mask, last_type_count, indent, &first_one);
                 last_type_mask = type_mask;
                 last_type_count = 1;
             }
@@ -267,63 +286,74 @@ hncp_print_rec(netdissect_options *ndo,
 
         case DNCP_REQUEST_NETWORK_STATE: {
             if (bodylen != 0) goto invalid;
-            //TODO:HIDDEN BYTES
         }
             break;
 
         case DNCP_REQUEST_NODE_STATE: {
             if (bodylen != 4) goto invalid;
-            ND_PRINT((ndo, " NID: %s", format_nid(value)));
+            const char *node_identifier = format_nid(value);
+            ND_PRINT((ndo, " NID: %s",
+                node_identifier
+            ));
         }
             break;
 
         case DNCP_NODE_ENDPOINT: {
             if (bodylen != 8) goto invalid;
+            const char *node_identifier = format_nid(value);
+            uint32_t endpoint_identifier = EXTRACT_32BITS(value + 4);
             ND_PRINT((ndo, " NID: %s EPID: %08x",
-                format_nid(value),
-                EXTRACT_32BITS(value + 4)
+                node_identifier,
+                endpoint_identifier
             ));
         }
             break;
 
         case DNCP_NETWORK_STATE: {
             if (bodylen != 8) goto invalid;
-            ND_PRINT((ndo, " Hash: %016lx",
-                EXTRACT_64BITS(value)
+            uint64_t hash = EXTRACT_64BITS(value);
+            ND_PRINT((ndo, " hash: %016lx",
+                hash
             ));
         }
             break;
 
         case DNCP_NODE_STATE: {
             if (bodylen < 20) goto invalid;
-            ND_PRINT((ndo, " NID: %s Seq-num: %u Interval: %sms Hash: %016lx",
-                format_nid(value),
-                EXTRACT_32BITS(value + 4),
-                format_interval(EXTRACT_32BITS(value + 8)),
-                EXTRACT_64BITS(value + 12)
+            const char *node_identifier = format_nid(value);
+            uint32_t sequence_number = EXTRACT_32BITS(value + 4);
+            const char *time = format_interval(EXTRACT_32BITS(value + 8));
+            uint64_t hash = EXTRACT_64BITS(value + 12);
+            ND_PRINT((ndo, " NID: %s seqno: %u %s hash: %016lx",
+                node_identifier,
+                sequence_number,
+                time,
+                hash
             ));
-            if (bodylen > 20) {
-                ND_PRINT((ndo, " Data:"));
-                hncp_print_rec(ndo, value+20, bodylen-20, indent+1);
-            }
+            hncp_print_rec(ndo, value+20, bodylen-20, indent+1);
         }
             break;
 
         case DNCP_PEER: {
             if (bodylen != 12) goto invalid;
+            const char *peer_node_identifier = format_nid(value);
+            uint32_t peer_endpoint_identifier = EXTRACT_32BITS(value + 4);
+            uint32_t endpoint_identifier = EXTRACT_32BITS(value + 8);
             ND_PRINT((ndo, " Peer-NID: %s Peer-EPID: %08x Local-EPID: %08x",
-                format_nid(value),
-                EXTRACT_32BITS(value + 4),
-                EXTRACT_32BITS(value + 8)
+                peer_node_identifier,
+                peer_endpoint_identifier,
+                endpoint_identifier
             ));
         }
             break;
 
         case DNCP_KEEP_ALIVE_INTERVAL: {
             if (bodylen < 8) goto invalid;
+            uint32_t endpoint_identifier = EXTRACT_32BITS(value);
+            const char *interval = format_interval(EXTRACT_32BITS(value + 4));
             ND_PRINT((ndo, " EPID: %08x Interval: %s",
-                EXTRACT_32BITS(value),
-                format_interval(EXTRACT_32BITS(value + 4))
+                endpoint_identifier,
+                interval
             ));
         }
             break;
@@ -462,25 +492,26 @@ hncp_print_rec(netdissect_options *ndo,
             uint8_t rsv, L, B, S;
             if (bodylen < 17) goto invalid;
             rsv = (uint8_t)(value[16] & 0xf8);
-            //L = (uint8_t)((value[16] >> 2 & 0x1));
-            //B = (uint8_t)((value[16] >> 1 & 0x1));
-            //S = (uint8_t)(value[16] & 0x1);
-            ND_PRINT((ndo, " IP-Adress: %s Info: %c%c%c Zone: ",
+            ND_PRINT((ndo, " IP-Adress: %s %c%c%c ",
                 ip6addr_string(ndo, value),
                 (value[16]&4)?'l':'-',
                 (value[16]&2)?'b':'-',
-                (value[16]&1)?'s':'-'
+                (value[16]&1)?'s':'-'/*,
+                (is_in_line(ndo, indent+1))?"(DNS)":zone //FIXME:"(DNS)" PRINT */
             ));
-            // TODO:HIDDEN BYTES
-            // safeputs(ndo, value + 17, xxx);
-            // hncp_print_rec(ndo, value + 17 + xxx, bodylen - 17 - xxx, indent+1);
+            const u_char *zone = ns_nprint(ndo,value+17,value+17); //FIXME:DNS LENGTH + OVERFLOW
+            unsigned int l = 17 + strlen(zone);
+            printf("%d",l);
+            l += -l&3; //TODO:HIDDEN BYTES
+            /*if (bodylen>=l)
+                hncp_print_rec(ndo, value+l, bodylen-l, indent+1);*/
         }
             break;
 
         case HNCP_DOMAIN_NAME: {
             if (bodylen == 0) goto invalid;
             ND_PRINT((ndo, " Domain: "));
-            safeputs(ndo, value, bodylen);
+            const u_char *domain = ns_nprint(ndo,value+17,value+17); //FIXME:OVERFLOW
         }
             break;
 
@@ -498,7 +529,7 @@ hncp_print_rec(netdissect_options *ndo,
             } else
                 ND_PRINT((ndo, "(invalid)"));
             l += 17;
-            l += -l&3;
+            l += -l&3; //TODO:HIDDEN BYTES
             if (bodylen>=l)
                 hncp_print_rec(ndo, value+l, bodylen-l, indent+1);
         }
@@ -526,16 +557,8 @@ hncp_print_rec(netdissect_options *ndo,
 
         i += 4 + bodylen + (-bodylen&3);
     }
-    
-    if (in_line && last_type_count>0) {
-        if (non_first)
-            ND_PRINT((ndo, ","));
-        ND_PRINT((ndo, " %s",
-            tok2str(type_values, "Easter Egg", last_type_mask)
-        ));
-        if (last_type_count>1)
-            ND_PRINT((ndo, " (x%d)", last_type_count));
-    }
+    print_type_in_line(ndo, last_type_mask, last_type_count, indent, &first_one);
+
     return;
 
  trunc:
