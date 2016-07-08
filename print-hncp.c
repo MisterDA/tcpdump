@@ -82,14 +82,27 @@ static const struct tok type_values[] = {
     { 0, NULL}
 };
 
-#define DH4_PAD 0
 #define DH4_DNS_SERVERS 6
 #define DH4_NTP_SERVERS 42
+
+static const struct tok dh4opt_str[] = {
+    { DH4_DNS_SERVERS, "DNS-server" },
+    { DH4_NTP_SERVERS, "NTP-server"},
+    { 0, NULL }
+};
 
 #define DH6OPT_DNS_SERVERS 23
 #define DH6OPT_DOMAIN_LIST 24
 #define DH6OPT_SNTP_SERVERS 31
+#define DH6OPT_DOMAIN_SEARCH 119
 
+static const struct tok dh6opt_str[] = {
+    { DH6OPT_DNS_SERVERS,  "DNS-server" },
+    { DH6OPT_DOMAIN_LIST,  "DNS-search-list" },
+    { DH6OPT_SNTP_SERVERS, "SNTP-servers" },
+    { DH6OPT_DOMAIN_SEARCH, "DNS-search" },
+    { 0, NULL }
+};
 
 static const char *
 format_nid(const unsigned char *data)
@@ -152,19 +165,21 @@ dhcpv4_print(netdissect_options *ndo,
         const uint8_t bodylen = (uint8_t)tlv[1];
         const u_char *value = tlv + 2;
 
-        safeputchar(ndo, '\n');
+        ND_PRINT((ndo, "\n"));
         for (int t=indent; t>0; t--)
-            safeputchar(ndo, '\t');
+            ND_PRINT((ndo, "\t"));
+
+        ND_PRINT((ndo, "%s", tok2str(dh4opt_str, "Unknown", type)));
 
         switch (type) {
-
-        case DH4_DNS_SERVERS: {
-            if (bodylen < 4 || bodylen % 4)
-                // print error
+        case DH4_DNS_SERVERS:
+        case DH4_NTP_SERVERS:
+            if (bodylen < 4 || bodylen % 4) {
+                ND_PRINT((ndo, "%s", istr));
                 break;
+            }
             for (int i = 0; i < bodylen; i += 4)
-                ND_PRINT((ndo, " %s", ipaddr_string(ndo, tlv + 1)));
-        }
+                ND_PRINT((ndo, " %s", ipaddr_string(ndo, value + i)));
             break;
         } /* switch */
     } /* while */
@@ -186,7 +201,34 @@ dhcpv6_print(netdissect_options *ndo,
         for (int t=indent; t>0; t--)
             safeputchar(ndo, '\t');
 
+        ND_PRINT((ndo, "%s", tok2str(dh6opt_str, "Unknow", type)));
+
         switch (type) {
+            case DH6OPT_DNS_SERVERS:
+            case DH6OPT_SNTP_SERVERS: {
+                if (bodylen < 4 || bodylen % 4) {
+                    ND_PRINT((ndo, "%s", istr));
+                    return;
+                }
+                for (i = 0; i < bodylen; i += 16)
+                    ND_PRINT((ndo, " %s", ip6addr_string(ndo, value + i)));
+            }
+                break;
+            case DH6OPT_DOMAIN_LIST: {
+                /* TODO ?
+                const u_char *tp = (const u_char *)(dh6o + 1);
+                while (tp < cp + 4 + bodylen) {
+                    ND_PRINT((ndo, " "));
+                    if ((tp = ns_nprint(ndo, tp, cp + 4 + bodylen)) == NULL)
+                    goto trunc;
+                }
+                break;
+                */
+            }
+                break;
+            case DH6OPT_DOMAIN_SEARCH:
+                /* TODO ? */
+                break;
         } /* switch */
     } /* while */
 }
@@ -267,7 +309,7 @@ hncp_print_rec(netdissect_options *ndo,
 
         case DNCP_REQUEST_NETWORK_STATE: {
             if (bodylen != 0) goto invalid;
-            //TODO:HIDDEN BYTES
+            /* TODO: hidden bytes */
         }
             break;
 
@@ -332,13 +374,12 @@ hncp_print_rec(netdissect_options *ndo,
             if (bodylen <= 36) goto invalid;
             ND_PRINT((ndo, " Verdict: %u Fingerprint: %s Common Name: ",
                 *value,
-                // EXTRACT_24BITS(value + 1), // Reserved
+                /* EXTRACT_24BITS(value + 1), */ /* Reserved */
                 format_256(value + 4)));
             safeputs(ndo, value + 36, bodylen - 36);
         }
             break;
 
-        // FIXME: check the MPHL and the User-agent
         case HNCP_VERSION: {
             uint16_t capabilities;
             uint8_t M, P, H, L;
@@ -349,7 +390,7 @@ hncp_print_rec(netdissect_options *ndo,
             H = (uint8_t)((capabilities >> 4) & 0xf);
             L = (uint8_t)(capabilities & 0xf);
             ND_PRINT((ndo, " M: %u P: %u H: %u L: %u User-agent: ",
-                // EXTRACT_16BITS(value), // Reserved
+                /* EXTRACT_16BITS(value), */ /* Reserved */
                 M, P, H, L
             ));
             safeputs(ndo, value + 4, bodylen - 4);
@@ -372,8 +413,8 @@ hncp_print_rec(netdissect_options *ndo,
                 format_interval(EXTRACT_32BITS(value)),
                 format_interval(EXTRACT_32BITS(value + 4))
             ));
-            // FIXME: change prefix from (strange) string to IPv6 prefix
-            //safeputs(ndo, value + 9, prefix_len_byte);
+            /* FIXME: change prefix from (strange) string to IPv6 prefix
+            safeputs(ndo, value + 9, prefix_len_byte); */
             char *buf = malloc(sizeof(char) * 23);
             decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
             safeputs(ndo, (const u_char*)buf, prefix_len_byte);
@@ -392,9 +433,9 @@ hncp_print_rec(netdissect_options *ndo,
             if (policy == 0) {
                 if (bodylen != 1) goto invalid;
                 ND_PRINT((ndo, "Internet connectivity"));
-                //TODO:HIDDEN BYTES
+                /* TODO:hidden bytes */
             } else if (policy >= 1 && policy <= 128) {
-                ND_PRINT((ndo, "Dest-Prefix: ")); // TODO Prefix
+                ND_PRINT((ndo, "Dest-Prefix: ")); /* TODO: Prefix */
             } else if (policy == 129) {
                 ND_PRINT((ndo, "DNS: "));
             } else if (policy == 130) {
@@ -402,22 +443,22 @@ hncp_print_rec(netdissect_options *ndo,
             } else if (policy == 131) {
                 if (bodylen != 1) goto invalid;
                 ND_PRINT((ndo, "Restrictive assignment"));
-                //TODO:HIDDEN BYTES
+                /* TODO: hidden bytes */
             } else if (policy >= 132) {
-                ND_PRINT((ndo, "(invalid)"));// Reserved for future additions
+                ND_PRINT((ndo, "(invalid)")); /* Reserved for future additions */
             }
         }
             break;
 
-        // TODO
         case HNCP_DHCPV4_DATA: {
             if (bodylen == 0) goto invalid;
+            dhcpv4_print(ndo, value, bodylen, indent+1);
         }
             break;
 
-        // TODO
         case HNCP_DHCPV6_DATA: {
             if (bodylen == 0) goto invalid;
+            dhcpv6_print(ndo, value, bodylen, indent+1);
         }
             break;
 
@@ -435,8 +476,8 @@ hncp_print_rec(netdissect_options *ndo,
             ));
             if (prefix_len > 0) {
                 ND_PRINT((ndo, " Prefix: "));
-                // FIXME: change prefix from (strange) string to IPv6 prefix
-                // safeputs(ndo, value + 6, prefix_len_byte);
+                /* FIXME: change prefix from (strange) string to IPv6 prefix
+                safeputs(ndo, value + 6, prefix_len_byte); */
                 char *buf = malloc(sizeof(char) * 23);
                 decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
                 safeputs(ndo, (const u_char*)buf, prefix_len_byte);
@@ -459,21 +500,22 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DNS_DELEGATED_ZONE: {
-            uint8_t rsv, L, B, S;
+            /* uint8_t rsv, L, B, S;*/
             if (bodylen < 17) goto invalid;
-            rsv = (uint8_t)(value[16] & 0xf8);
-            //L = (uint8_t)((value[16] >> 2 & 0x1));
-            //B = (uint8_t)((value[16] >> 1 & 0x1));
-            //S = (uint8_t)(value[16] & 0x1);
+            /* rsv = (uint8_t)(value[16] & 0xf8);
+            L = (uint8_t)((value[16] >> 2 & 0x1));
+            B = (uint8_t)((value[16] >> 1 & 0x1));
+            S = (uint8_t)(value[16] & 0x1); */
             ND_PRINT((ndo, " IP-Adress: %s Info: %c%c%c Zone: ",
                 ip6addr_string(ndo, value),
                 (value[16]&4)?'l':'-',
                 (value[16]&2)?'b':'-',
                 (value[16]&1)?'s':'-'
             ));
-            // TODO:HIDDEN BYTES
-            // safeputs(ndo, value + 17, xxx);
-            // hncp_print_rec(ndo, value + 17 + xxx, bodylen - 17 - xxx, indent+1);
+
+            /* TODO: hidden bytes
+            safeputs(ndo, value + 17, xxx);
+            hncp_print_rec(ndo, value + 17 + xxx, bodylen - 17 - xxx, indent+1); */
         }
             break;
 
@@ -518,21 +560,19 @@ hncp_print_rec(netdissect_options *ndo,
         case RANGE_DNCP_PRIVATE_USE:
         case RANGE_DNCP_FUTURE_USE: {
             ND_PRINT((ndo, " (type=%u)", type));
-            //TODO:HIDDEN BYTES
+            /* TODO: hidden bytes */
         }
-        
+
         } /* switch */
     skip_multiline:
 
         i += 4 + bodylen + (-bodylen&3);
-    }
-    
+    } /* while */
+
     if (in_line && last_type_count>0) {
         if (non_first)
             ND_PRINT((ndo, ","));
-        ND_PRINT((ndo, " %s",
-            tok2str(type_values, "Easter Egg", last_type_mask)
-        ));
+        ND_PRINT((ndo, " %s", tok2str(type_values, "Easter Egg", last_type_mask)));
         if (last_type_count>1)
             ND_PRINT((ndo, " (x%d)", last_type_count));
     }
