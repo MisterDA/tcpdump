@@ -153,6 +153,14 @@ format_interval(const uint16_t i)
     return buf;
 }
 
+static const char *
+format_ip6addr(netdissect_options *ndo, const u_char *cp) {
+    if (EXTRACT_64BITS(cp)==0x0 && EXTRACT_32BITS(cp+8)==0xFFFF)
+        return ipaddr_string(ndo, cp + 12);
+    else
+        return ip6addr_string(ndo, cp);
+}
+
 static void
 dhcpv4_print(netdissect_options *ndo,
              const u_char *cp, u_int length, int indent)
@@ -329,6 +337,7 @@ hncp_print_rec(netdissect_options *ndo,
         case DNCP_REQUEST_NETWORK_STATE: {
             if (bodylen != 0) goto invalid;
             /* TODO: hidden bytes */
+        }
             break;
 
         case DNCP_REQUEST_NODE_STATE: {
@@ -459,7 +468,7 @@ hncp_print_rec(netdissect_options *ndo,
             uint8_t policy;
             if (bodylen < 1) goto invalid;
             policy = value[0];
-            ND_PRINT((ndo, " Type: "));
+            ND_PRINT((ndo, " type: "));
             if (policy == 0) {
                 if (bodylen != 1) goto invalid;
                 ND_PRINT((ndo, "Internet connectivity"));
@@ -467,9 +476,11 @@ hncp_print_rec(netdissect_options *ndo,
             } else if (policy >= 1 && policy <= 128) {
                 ND_PRINT((ndo, "Dest-Prefix: ")); /* TODO: Prefix */
             } else if (policy == 129) {
-                ND_PRINT((ndo, "DNS: "));
+                ND_PRINT((ndo, "DNS domain: "));
+                (void)ns_nprint(ndo,value+1,value+1); /* TODO: CHECK DNS LENGTH */
             } else if (policy == 130) {
-
+                ND_PRINT((ndo, "Opaque UTF-8: "));
+                safeputs(ndo, value+1, bodylen-1);
             } else if (policy == 131) {
                 if (bodylen != 1) goto invalid;
                 ND_PRINT((ndo, "Restrictive assignment"));
@@ -520,9 +531,11 @@ hncp_print_rec(netdissect_options *ndo,
 
         case HNCP_NODE_ADDRESS: {
             if (bodylen < 20) goto invalid;
+            uint32_t endpoint_identifier = EXTRACT_32BITS(value);
+            const char *ip_address = format_ip6addr(ndo, value + 4);
             ND_PRINT((ndo, " EPID: %08x IP Adress: %s",
-                EXTRACT_32BITS(value),
-                ip6addr_string(ndo, value + 4)
+                endpoint_identifier,
+                ip_address
             ));
 
             hncp_print_rec(ndo, value + 20, bodylen - 20, indent+1);
@@ -532,25 +545,26 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_DNS_DELEGATED_ZONE: {
             /* uint8_t rsv, L, B, S;*/
             if (bodylen < 17) goto invalid;
-            rsv = (uint8_t)(value[16] & 0xf8);
-            ND_PRINT((ndo, " IP-Adress: %s %c%c%c ",
             /* rsv = (uint8_t)(value[16] & 0xf8);
             L = (uint8_t)((value[16] >> 2 & 0x1));
             B = (uint8_t)((value[16] >> 1 & 0x1));
             S = (uint8_t)(value[16] & 0x1); */
+            const char *ip_address = format_ip6addr(ndo, value);
             ND_PRINT((ndo, " IP-Adress: %s %c%c%c ",
-                ip6addr_string(ndo, value),
+                ip_address,
                 (value[16]&4)?'l':'-',
                 (value[16]&2)?'b':'-',
                 (value[16]&1)?'s':'-'/*,
                 (is_in_line(ndo, indent+1))?"(DNS)":zone //FIXME:"(DNS)" PRINT */
             ));
+            /*TODO: see https://github.com/jech/polipo/blob/master/dns.c (line 1403) */
             const u_char *zone = ns_nprint(ndo,value+17,value+17); //FIXME:DNS LENGTH + OVERFLOW
             unsigned int l = 17 + strlen(zone);
             printf("%d",l);
             l += -l&3; /*TODO:HIDDEN BYTES*/
             /*if (bodylen>=l)
                 hncp_print_rec(ndo, value+l, bodylen-l, indent+1);*/
+            ND_PRINT((ndo, " [...]"));
         }
             break;
 
@@ -566,7 +580,7 @@ hncp_print_rec(netdissect_options *ndo,
             unsigned char l = value[16];
             if (bodylen < 17+l) goto invalid;
             ND_PRINT((ndo, " IP-Adress: %s Name: ",
-                ip6addr_string(ndo, value)
+                format_ip6addr(ndo, value)
             ));
             if (l<64) {
                 safeputchar(ndo, '"');
