@@ -115,7 +115,7 @@ format_nid(const unsigned char *data)
     return buf[i];
 }
 
-static const char * //FIXME usefull ?
+static const char * /*FIXME usefull ?*/
 format_64(const unsigned char *data)
 {
     static char buf[4][23+5];
@@ -290,7 +290,7 @@ hncp_print_rec(netdissect_options *ndo,
         const uint16_t type = EXTRACT_16BITS(tlv);
         const uint16_t bodylen = EXTRACT_16BITS(tlv + 2);
         const u_char *value = tlv + 4;
-        ND_TCHECK2(*value, bodylen);  //TODO
+        ND_TCHECK2(*value, bodylen);  /*TODO*/
         if (i+bodylen+4>length) goto invalid;
 
         uint32_t type_mask =
@@ -555,10 +555,12 @@ hncp_print_rec(netdissect_options *ndo,
                 (value[16]&4)?'l':'-',
                 (value[16]&2)?'b':'-',
                 (value[16]&1)?'s':'-'/*,
-                (is_in_line(ndo, indent+1))?"(DNS)":zone //FIXME:"(DNS)" PRINT */
+                (is_in_line(ndo, indent+1))?"(DNS)":zone /*FIXME:"(DNS)" PRINT */
             ));
             /*TODO: see https://github.com/jech/polipo/blob/master/dns.c (line 1403) */
-            const u_char *zone = ns_nprint(ndo,value+17,value+17); //FIXME:DNS LENGTH + OVERFLOW
+            /*TODO: see print-domain.c#ns_nprint() (line 146) */
+            const u_char *zone = ns_nprint(ndo,value+17,ndo->ndo_snapend);
+            /*FIXME:DNS LENGTH + OVERFLOW*/
             unsigned int l = 17 + strlen(zone);
             printf("%d",l);
             l += -l&3; /*TODO:HIDDEN BYTES*/
@@ -571,7 +573,7 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_DOMAIN_NAME: {
             if (bodylen == 0) goto invalid;
             ND_PRINT((ndo, " Domain: "));
-            const u_char *domain = ns_nprint(ndo,value+17,value+17); //FIXME:OVERFLOW
+            const u_char *domain = ns_nprint(ndo,value+17,value+17); /*FIXME:OVERFLOW*/
         }
             break;
 
@@ -589,7 +591,7 @@ hncp_print_rec(netdissect_options *ndo,
             } else
                 ND_PRINT((ndo, "(invalid)"));
             l += 17;
-            l += -l&3; //TODO:HIDDEN BYTES
+            l += -l&3; /*TODO:HIDDEN BYTES*/
             if (bodylen>=l)
                 hncp_print_rec(ndo, value+l, bodylen-l, indent+1);
         }
