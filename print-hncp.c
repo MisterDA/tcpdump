@@ -51,7 +51,7 @@ hncp_print(netdissect_options *ndo,
     hncp_print_rec(ndo, cp, length, 1);
 }
 
-/* TLVs */
+/* RFC7787 */
 #define DNCP_REQUEST_NETWORK_STATE  1
 #define DNCP_REQUEST_NODE_STATE     2
 #define DNCP_NODE_ENDPOINT          3
@@ -61,6 +61,7 @@ hncp_print(netdissect_options *ndo,
 #define DNCP_KEEP_ALIVE_INTERVAL    9
 #define DNCP_TRUST_VERDICT         10
 
+/* RFC7788 */
 #define HNCP_VERSION               32
 #define HNCP_EXTERNAL_CONNECTION   33
 #define HNCP_DELEGATED_PREFIX      34
@@ -110,25 +111,25 @@ static const struct tok type_values[] = {
     { 0, NULL}
 };
 
-#define DH4_DNS_SERVERS 6
-#define DH4_NTP_SERVERS 42
+#define DH4OPT_DNS_SERVERS 6   /* RFC2132 */
+#define DH4OPT_NTP_SERVERS 42  /* RFC2132 */
+#define DH4OPT_DOMAIN_SEARCH 119    /* RFC3397 */
 
 static const struct tok dh4opt_str[] = {
-    { DH4_DNS_SERVERS, "DNS-server" },
-    { DH4_NTP_SERVERS, "NTP-server"},
+    { DH4OPT_DNS_SERVERS, "DNS-server" },
+    { DH4OPT_NTP_SERVERS, "NTP-server"},
+    { DH4OPT_DOMAIN_SEARCH, "DNS-search" },
     { 0, NULL }
 };
 
-#define DH6OPT_DNS_SERVERS 23
-#define DH6OPT_DOMAIN_LIST 24
-#define DH6OPT_SNTP_SERVERS 31
-#define DH6OPT_DOMAIN_SEARCH 119
+#define DH6OPT_DNS_SERVERS 23   /* RFC3646 */
+#define DH6OPT_DOMAIN_LIST 24   /* RFC3646 */
+#define DH6OPT_SNTP_SERVERS 31  /* RFC4075 */
 
 static const struct tok dh6opt_str[] = {
     { DH6OPT_DNS_SERVERS,  "DNS-server" },
     { DH6OPT_DOMAIN_LIST,  "DNS-search-list" },
     { DH6OPT_SNTP_SERVERS, "SNTP-servers" },
-    { DH6OPT_DOMAIN_SEARCH, "DNS-search" },
     { 0, NULL }
 };
 
@@ -140,18 +141,6 @@ format_nid(const u_char *data)
     i = (i + 1) % 4;
     snprintf(buf[i], 16, "%02x:%02x:%02x:%02x",
              data[0], data[1], data[2], data[3]);
-    return buf[i];
-}
-
-static const char * /* FIXME usefull ? */
-format_64(const u_char *data)
-{
-    static char buf[4][23+5];
-    static int i = 0;
-    i = (i + 1) % 4;
-    snprintf(buf[i], 28, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-             data[0], data[1], data[2], data[3],
-             data[4], data[5], data[6], data[7]);
     return buf[i];
 }
 
@@ -184,7 +173,7 @@ format_interval(const uint16_t i)
 static const char *
 format_ip6addr(netdissect_options *ndo, const u_char *cp)
 {
-    if (EXTRACT_64BITS(cp)==0x0 && EXTRACT_32BITS(cp+8)==0xFFFF)
+    if (EXTRACT_64BITS(cp) == 0x0 && EXTRACT_32BITS(cp+8) == 0xffff)
         return ipaddr_string(ndo, cp + 12);
     else
         return ip6addr_string(ndo, cp);
@@ -235,17 +224,13 @@ dhcpv4_print(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
 
-        ND_PRINT((ndo, "%s", tok2str(dh4opt_str, "Unknown", type)));
+        ND_PRINT((ndo, "%s", bittok2str(dh4opt_str, "Unknown", type)));
 
         switch (type) {
-        case DH4_DNS_SERVERS:
-        case DH4_NTP_SERVERS:
-            if (bodylen < 4 || bodylen % 4 != 0) {
-                ND_PRINT((ndo, "%s", istr));
-                break;
-            }
-            for (t = 0; t < bodylen; t += 4)
-                ND_PRINT((ndo, " %s", ipaddr_string(ndo, value + t)));
+        case DH4OPT_DNS_SERVERS:
+        case DH4OPT_NTP_SERVERS:
+        case DH4OPT_DOMAIN_SEARCH: {
+        }
             break;
         }
     }
@@ -270,33 +255,13 @@ dhcpv6_print(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
 
-        ND_PRINT((ndo, "%s", tok2str(dh6opt_str, "Unknown", type)));
+        ND_PRINT((ndo, "%s", bittok2str(dh6opt_str, "Unknown", type)));
 
         switch (type) {
             case DH6OPT_DNS_SERVERS:
+            case DH6OPT_DOMAIN_LIST:
             case DH6OPT_SNTP_SERVERS: {
-                if (bodylen < 4 || bodylen % 4 != 0) {
-                    ND_PRINT((ndo, "%s", istr));
-                    return;
-                }
-                for (t = 0; t < bodylen; t += 16)
-                    ND_PRINT((ndo, " %s", ip6addr_string(ndo, value + i)));
             }
-                break;
-            case DH6OPT_DOMAIN_LIST: {
-                /* TODO ?
-                const u_char *tp = (const u_char *)(dh6o + 1);
-                while (tp < cp + 4 + bodylen) {
-                    ND_PRINT((ndo, " "));
-                    if ((tp = ns_nprint(ndo, tp, cp + 4 + bodylen)) == NULL)
-                        goto trunc;
-                }
-                break;
-                */
-            }
-                break;
-            case DH6OPT_DOMAIN_SEARCH:
-                /* TODO ? */
                 break;
         }
     }
@@ -327,7 +292,7 @@ print_type_in_line(netdissect_options *ndo,
         } else {
             ND_PRINT((ndo, ", "));
         }
-        ND_PRINT((ndo, "%s", tok2str(type_values, "Easter Egg", type)));
+        ND_PRINT((ndo, "%s", bittok2str(type_values, "Easter Egg", type)));
         if (count > 1)
             ND_PRINT((ndo, " (x%d)", count));
     }
@@ -399,7 +364,7 @@ hncp_print_rec(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
         ND_PRINT((ndo,"%s (%u)",
-            tok2str(type_values,"Easter Egg (42)",type_mask),
+            bittok2str(type_values, "Easter Egg (42)", type_mask),
             bodylen + 4
         ));
 
@@ -529,6 +494,7 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DELEGATED_PREFIX: {
+
             uint8_t prefix_len;
             uint prefix_len_byte;
             char buf[23];
@@ -682,7 +648,7 @@ hncp_print_rec(netdissect_options *ndo,
             ));
             if (l < 64) {
                 safeputchar(ndo, '"');
-                safeputs(ndo, value + 17,l);
+                safeputs(ndo, value + 17, l);
                 safeputchar(ndo, '"');
             } else {
                 ND_PRINT((ndo, "%s", istr));
