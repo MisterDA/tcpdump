@@ -234,7 +234,7 @@ dhcpv6_print(netdissect_options *ndo,
                 while (tp < cp + 4 + bodylen) {
                     ND_PRINT((ndo, " "));
                     if ((tp = ns_nprint(ndo, tp, cp + 4 + bodylen)) == NULL)
-                    goto trunc;
+                        goto trunc;
                 }
                 break;
                 */
@@ -296,13 +296,15 @@ hncp_print_rec(netdissect_options *ndo,
     while (i < length) {
         tlv = cp + i;
         ND_TCHECK2(*tlv, 4);
-        if (i + 4 > length) goto invalid;
+        if (i + 4 > length)
+            goto invalid;
 
         type = EXTRACT_16BITS(tlv);
         bodylen = EXTRACT_16BITS(tlv + 2);
         value = tlv + 4;
         ND_TCHECK2(*value, bodylen);  /* TODO */
-        if (i + bodylen + 4 > length) goto invalid;
+        if (i + bodylen + 4 > length)
+            goto invalid;
 
         type_mask =
             (type == 0)                   ? RANGE_DNCP_RESERVED:
@@ -347,14 +349,16 @@ hncp_print_rec(netdissect_options *ndo,
         switch (type_mask) {
 
         case DNCP_REQUEST_NETWORK_STATE: {
-            if (bodylen != 0) goto invalid;
+            if (bodylen != 0)
+                goto invalid;
             /* TODO: hidden bytes */
         }
             break;
 
         case DNCP_REQUEST_NODE_STATE: {
             const char *node_identifier;
-            if (bodylen != 4) goto invalid;
+            if (bodylen != 4)
+                goto invalid;
             node_identifier = format_nid(value);
             ND_PRINT((ndo, " NID: %s", node_identifier));
         }
@@ -363,7 +367,8 @@ hncp_print_rec(netdissect_options *ndo,
         case DNCP_NODE_ENDPOINT: {
             const char *node_identifier;
             uint32_t endpoint_identifier;
-            if (bodylen != 8) goto invalid;
+            if (bodylen != 8)
+                goto invalid;
             node_identifier = format_nid(value);
             endpoint_identifier = EXTRACT_32BITS(value + 4);
             ND_PRINT((ndo, " NID: %s EPID: %08x",
@@ -375,7 +380,8 @@ hncp_print_rec(netdissect_options *ndo,
 
         case DNCP_NETWORK_STATE: {
             uint64_t hash;
-            if (bodylen != 8) goto invalid;
+            if (bodylen != 8)
+                goto invalid;
             hash = EXTRACT_64BITS(value);
             ND_PRINT((ndo, " hash: %016lx", hash));
         }
@@ -385,7 +391,8 @@ hncp_print_rec(netdissect_options *ndo,
             const char *node_identifier, *time;
             uint32_t sequence_number;
             uint64_t hash;
-            if (bodylen < 20) goto invalid;
+            if (bodylen < 20)
+                goto invalid;
             node_identifier = format_nid(value);
             sequence_number = EXTRACT_32BITS(value + 4);
             time = format_interval(EXTRACT_32BITS(value + 8));
@@ -403,7 +410,8 @@ hncp_print_rec(netdissect_options *ndo,
         case DNCP_PEER: {
             const char *peer_node_identifier;
             uint32_t peer_endpoint_identifier, endpoint_identifier;
-            if (bodylen != 12) goto invalid;
+            if (bodylen != 12)
+                goto invalid;
             peer_node_identifier = format_nid(value);
             peer_endpoint_identifier = EXTRACT_32BITS(value + 4);
             endpoint_identifier = EXTRACT_32BITS(value + 8);
@@ -418,7 +426,8 @@ hncp_print_rec(netdissect_options *ndo,
         case DNCP_KEEP_ALIVE_INTERVAL: {
             uint32_t endpoint_identifier;
             const char *interval;
-            if (bodylen < 8) goto invalid;
+            if (bodylen < 8)
+                goto invalid;
             endpoint_identifier = EXTRACT_32BITS(value);
             interval = format_interval(EXTRACT_32BITS(value + 4));
             ND_PRINT((ndo, " EPID: %08x Interval: %s",
@@ -429,7 +438,8 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case DNCP_TRUST_VERDICT: {
-            if (bodylen <= 36) goto invalid;
+            if (bodylen <= 36)
+                goto invalid;
             ND_PRINT((ndo, " Verdict: %u Fingerprint: %s Common Name: ",
                 *value,
                 /* EXTRACT_24BITS(value + 1), */ /* Reserved */
@@ -441,7 +451,8 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_VERSION: {
             uint16_t capabilities;
             uint8_t M, P, H, L;
-            if (bodylen < 5) goto invalid;
+            if (bodylen < 5)
+                goto invalid;
             capabilities = EXTRACT_16BITS(value + 2);
             M = (uint8_t)((capabilities >> 12) & 0xf);
             P = (uint8_t)((capabilities >> 8) & 0xf);
@@ -464,7 +475,8 @@ hncp_print_rec(netdissect_options *ndo,
             uint8_t prefix_len;
             uint prefix_len_byte;
             char buf[23];
-            if (bodylen < 9) goto invalid;
+            if (bodylen < 9)
+                goto invalid;
             prefix_len = value[4];
             prefix_len_byte = (prefix_len + 7) / 8;
 
@@ -484,11 +496,13 @@ hncp_print_rec(netdissect_options *ndo,
 
         case HNCP_PREFIX_POLICY: {
             uint8_t policy;
-            if (bodylen < 1) goto invalid;
+            if (bodylen < 1)
+                goto invalid;
             policy = value[0];
             ND_PRINT((ndo, " type: "));
             if (policy == 0) {
-                if (bodylen != 1) goto invalid;
+                if (bodylen != 1)
+                    goto invalid;
                 ND_PRINT((ndo, "Internet connectivity"));
                 /* TODO:hidden bytes */
             } else if (policy >= 1 && policy <= 128) {
@@ -500,7 +514,8 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Opaque UTF-8: "));
                 safeputs(ndo, value + 1, bodylen - 1);
             } else if (policy == 131) {
-                if (bodylen != 1) goto invalid;
+                if (bodylen != 1)
+                    goto invalid;
                 ND_PRINT((ndo, "Restrictive assignment"));
                 /* TODO: hidden bytes */
             } else if (policy >= 132) {
@@ -510,13 +525,15 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DHCPV4_DATA: {
-            if (bodylen == 0) goto invalid;
+            if (bodylen == 0)
+                goto invalid;
             dhcpv4_print(ndo, value, bodylen, indent+1);
         }
             break;
 
         case HNCP_DHCPV6_DATA: {
-            if (bodylen == 0) goto invalid;
+            if (bodylen == 0)
+                goto invalid;
             dhcpv6_print(ndo, value, bodylen, indent+1);
         }
             break;
@@ -524,7 +541,8 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_ASSIGNED_PREFIX: {
             uint8_t rsv, prty, prefix_len;
             uint prefix_len_byte;
-            if (bodylen < 6) goto invalid;
+            if (bodylen < 6)
+                goto invalid;
             rsv = (uint8_t)((value[4] >> 4) & 0xf);
             prty = (uint8_t)(value[4] & 0xf);
             prefix_len = (uint8_t)value[5];
@@ -549,7 +567,8 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_NODE_ADDRESS: {
             uint32_t endpoint_identifier;
             const char *ip_address;
-            if (bodylen < 20) goto invalid;
+            if (bodylen < 20)
+                goto invalid;
             endpoint_identifier = EXTRACT_32BITS(value);
             ip_address = format_ip6addr(ndo, value + 4);
             ND_PRINT((ndo, " EPID: %08x IP Address: %s",
@@ -565,7 +584,8 @@ hncp_print_rec(netdissect_options *ndo,
             const char *ip_address, *zone;
             u_int l;
             /* uint8_t rsv, L, B, S;*/
-            if (bodylen < 17) goto invalid;
+            if (bodylen < 17)
+                goto invalid;
             /* rsv = (uint8_t)(value[16] & 0xf8);
             L = (uint8_t)((value[16] >> 2 & 0x1));
             B = (uint8_t)((value[16] >> 1 & 0x1));
@@ -590,7 +610,8 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DOMAIN_NAME: {
-            if (bodylen == 0) goto invalid;
+            if (bodylen == 0)
+                goto invalid;
             ND_PRINT((ndo, " Domain: "));
             (void)ns_nprint(ndo, value + 17, value + 17); /* FIXME: overflow */
         }
@@ -598,9 +619,11 @@ hncp_print_rec(netdissect_options *ndo,
 
         case HNCP_NODE_NAME: {
             u_char l;
-            if (bodylen < 17) goto invalid;
+            if (bodylen < 17)
+                goto invalid;
             l = value[16];
-            if (bodylen < 17 + l) goto invalid;
+            if (bodylen < 17 + l)
+                goto invalid;
             ND_PRINT((ndo, " IP-Address: %s Name: ",
                 format_ip6addr(ndo, value)
             ));
@@ -618,7 +641,8 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_MANAGED_PSK: {
-            if (bodylen < 32) goto invalid;
+            if (bodylen < 32)
+                goto invalid;
             ND_PRINT((ndo, " PSK: %s", format_256(value)));
             hncp_print_rec(ndo, value + 32, bodylen - 32, indent+1);
         }
