@@ -182,12 +182,39 @@ format_interval(const uint16_t i)
 }
 
 static const char *
-format_ip6addr(netdissect_options *ndo, const u_char *cp) {
+format_ip6addr(netdissect_options *ndo, const u_char *cp)
+{
     if (EXTRACT_64BITS(cp)==0x0 && EXTRACT_32BITS(cp+8)==0xFFFF)
         return ipaddr_string(ndo, cp + 12);
     else
         return ip6addr_string(ndo, cp);
 }
+
+static int
+print_dns_label(netdissect_options *ndo,
+             const u_char *cp, u_int max_length, int print)
+{
+    u_int length = 0;
+    while (length < max_length) {
+        u_int lab_length = cp[length++];
+        if (lab_length == 0)
+            return length;
+        if (length > 1 && print)
+            safeputchar(ndo, '.');
+        if (length+lab_length > max_length) {
+            if (print)
+                safeputs(ndo, cp+length, max_length-length);
+            break;
+        }
+        if (print)
+            safeputs(ndo, cp+length, lab_length);
+        length += lab_length;
+    }
+    if (print)
+        ND_PRINT((ndo, "[|DNS]"));
+    return -1;
+}
+
 
 static void
 dhcpv4_print(netdissect_options *ndo,
@@ -275,6 +302,7 @@ dhcpv6_print(netdissect_options *ndo,
     }
 }
 
+/* determine in-line mode */
 static int
 is_in_line(netdissect_options *ndo, int indent)
 {
@@ -293,10 +321,12 @@ print_type_in_line(netdissect_options *ndo,
                 ND_PRINT((ndo, "\n"));
                 for (t = indent; t > 0; t--)
                     ND_PRINT((ndo, "\t"));
-            } else
+            } else {
                 ND_PRINT((ndo, " "));
-        } else
+            }
+        } else {
             ND_PRINT((ndo, ", "));
+        }
         ND_PRINT((ndo, "%s", tok2str(type_values, "Easter Egg", type)));
         if (count > 1)
             ND_PRINT((ndo, " (x%d)", count));
@@ -307,7 +337,6 @@ void
 hncp_print_rec(netdissect_options *ndo,
                const u_char *cp, u_int length, int indent)
 {
-    /* print in one line */
     const int in_line = is_in_line(ndo, indent);
     int first_one = 1;
 
@@ -609,38 +638,34 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DNS_DELEGATED_ZONE: {
-            const char *ip_address, *zone;
-            u_int l;
-            /* uint8_t rsv, L, B, S;*/
+            const char *ip_address;
+            int l, b;
             if (bodylen < 17)
                 goto invalid;
-            /* rsv = (uint8_t)(value[16] & 0xf8);
-            L = (uint8_t)((value[16] >> 2 & 0x1));
-            B = (uint8_t)((value[16] >> 1 & 0x1));
-            S = (uint8_t)(value[16] & 0x1); */
             ip_address = format_ip6addr(ndo, value);
             ND_PRINT((ndo, " IP-Address: %s %c%c%c ",
                 ip_address,
                 (value[16] & 4) ? 'l' : '-',
                 (value[16] & 2) ? 'b' : '-',
-                (value[16] & 1) ? 's' : '-'/*,
-                (is_in_line(ndo, indent+1))?"(DNS)":zone // FIXME:"(DNS)" print */
+                (value[16] & 1) ? 's' : '-'
             ));
-            /*TODO: see https://github.com/jech/polipo/blob/master/dns.c (line 1403) */
-            zone = ns_nprint(ndo, value + 17, value + 17); // FIXME: DNS length + overflow
-            l = 17 + strlen(zone);
-            printf("%d",l);
+            b = 0; /*is_in_line(ndo, indent+1);*/
+            l = print_dns_label(ndo, value+17, bodylen-17, !b);
+            if (l < 0)
+                goto invalid;
+            if (b)
+                ND_PRINT((ndo, "(DNS)"));
+            l += 17;
             l += -l&3; /* TODO: hidden bytes */
-            /*if (bodylen >= l)
-                hncp_print_rec(ndo, value+l, bodylen-l, indent+1);*/
-            ND_PRINT((ndo, " [...]"));
+            if (bodylen >= l)
+                hncp_print_rec(ndo, value+l, bodylen-l, indent+1);
         }
             break;
 
         case HNCP_DOMAIN_NAME: {
             if (bodylen == 0)
                 goto invalid;
-            ND_PRINT((ndo, " Domain: "));
+            ND_PRINT((ndo, " Domain: ")); //TODO:DNS
             (void)ns_nprint(ndo, value + 17, value + 17); /* FIXME: overflow */
         }
             break;
@@ -659,8 +684,9 @@ hncp_print_rec(netdissect_options *ndo,
                 safeputchar(ndo, '"');
                 safeputs(ndo, value + 17,l);
                 safeputchar(ndo, '"');
-            } else
-                ND_PRINT((ndo, istr));
+            } else {
+                ND_PRINT((ndo, "%s", istr));
+            }
             l += 17;
             l += -l & 3; /* TODO: hidden bytes */
             if (bodylen >= l)
