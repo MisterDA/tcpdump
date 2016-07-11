@@ -532,7 +532,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Dest-Prefix: ")); /* TODO: Prefix */
             } else if (policy == 129) {
                 ND_PRINT((ndo, "DNS domain: "));
-                (void)ns_nprint(ndo, value + 1, value + 1); /* TODO: check DNS length */
+                (void)print_dns_label(ndo, value+1, bodylen-1, 1);
             } else if (policy == 130) {
                 ND_PRINT((ndo, "Opaque UTF-8: "));
                 safeputs(ndo, value + 1, bodylen - 1);
@@ -631,8 +631,8 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_DOMAIN_NAME: {
             if (bodylen == 0)
                 goto invalid;
-            ND_PRINT((ndo, " Domain: ")); //TODO:DNS
-            (void)ns_nprint(ndo, value + 17, value + 17); /* FIXME: overflow */
+            ND_PRINT((ndo, " Domain: "));
+            (void)print_dns_label(ndo, value, bodylen, 1);
         }
             break;
 
