@@ -713,10 +713,6 @@ hncp_print_rec(netdissect_options *ndo,
     return;
 
  trunc:
-    if (!in_line) {
-        ND_PRINT((ndo, "\n"));
-        for (t = indent; t > 0; t--) ND_PRINT((ndo, "\t"));
-    }
     ND_PRINT((ndo, "%s", "[|hncp]"));
     return;
 
