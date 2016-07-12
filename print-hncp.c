@@ -496,7 +496,6 @@ hncp_print_rec(netdissect_options *ndo,
                 goto invalid;
             ND_PRINT((ndo, " Verdict: %u Fingerprint: %s Common Name: ",
                 *value,
-                /* EXTRACT_24BITS(value + 1), */ /* Reserved */
                 format_256(value + 4)));
             safeputs(ndo, value + 36, bodylen - 36);
         }
@@ -513,7 +512,6 @@ hncp_print_rec(netdissect_options *ndo,
             H = (uint8_t)((capabilities >> 4) & 0xf);
             L = (uint8_t)(capabilities & 0xf);
             ND_PRINT((ndo, " M: %u P: %u H: %u L: %u User-agent: ",
-                /* EXTRACT_16BITS(value), */ /* Reserved */
                 M, P, H, L
             ));
             safeputs(ndo, value + 4, bodylen - 4);
