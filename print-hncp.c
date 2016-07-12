@@ -225,7 +225,7 @@ dhcpv4_print(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
 
-        ND_PRINT((ndo, "%s", bittok2str(dh4opt_str, "Unknown", type)));
+        ND_PRINT((ndo, "%s", tok2str(dh4opt_str, "Unknown", type)));
 
         switch (type) {
         case DH4OPT_DNS_SERVERS:
@@ -271,7 +271,7 @@ dhcpv6_print(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
 
-        ND_PRINT((ndo, "%s", bittok2str(dh6opt_str, "Unknown", type)));
+        ND_PRINT((ndo, "%s", tok2str(dh6opt_str, "Unknown", type)));
 
         switch (type) {
             case DH6OPT_DNS_SERVERS:
@@ -323,7 +323,7 @@ print_type_in_line(netdissect_options *ndo,
         } else {
             ND_PRINT((ndo, ", "));
         }
-        ND_PRINT((ndo, "%s", bittok2str(type_values, "Easter Egg", type)));
+        ND_PRINT((ndo, "%s", tok2str(type_values, "Easter Egg", type)));
         if (count > 1)
             ND_PRINT((ndo, " (x%d)", count));
     }
@@ -397,7 +397,7 @@ hncp_print_rec(netdissect_options *ndo,
         for (t = indent; t > 0; t--)
             ND_PRINT((ndo, "\t"));
         ND_PRINT((ndo,"%s (%u)",
-            bittok2str(type_values, "Easter Egg (42)", type_mask),
+            tok2str(type_values, "Easter Egg (42)", type_mask),
             bodylen + 4
         ));
 
