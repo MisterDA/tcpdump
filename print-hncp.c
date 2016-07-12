@@ -205,19 +205,19 @@ print_dns_label(netdissect_options *ndo,
 }
 
 
-static void
+static int
 dhcpv4_print(netdissect_options *ndo,
              const u_char *cp, u_int length, int indent)
 {
     u_int i, t;
     const u_char *tlv, *value;
-    uint8_t type, bodylen;
+    uint8_t type, optlen;
 
     i = 0;
     while (i < length) {
         tlv = cp + i;
         type = (uint8_t)tlv[0];
-        bodylen = (uint8_t)tlv[1];
+        optlen = (uint8_t)tlv[1];
         value = tlv + 2;
 
         ND_PRINT((ndo, "\n"));
@@ -228,27 +228,42 @@ dhcpv4_print(netdissect_options *ndo,
 
         switch (type) {
         case DH4OPT_DNS_SERVERS:
-        case DH4OPT_NTP_SERVERS:
+        case DH4OPT_NTP_SERVERS: {
+            if (optlen < 4 || optlen % 4 != 0) {
+                ND_PRINT((ndo, " %s", istr));
+                return -1;
+            }
+            for (t = 0; t < optlen; t += 4)
+                ND_PRINT((ndo, " %s", ipaddr_string(ndo, value + t)));
+        }
+            break;
         case DH4OPT_DOMAIN_SEARCH: {
+            const u_char *tp = value;
+            while (tp < cp + 2 + optlen) {
+                ND_PRINT((ndo, " "));
+                if ((tp = ns_nprint(ndo, tp, cp + 2 + optlen)) == NULL)
+                    return -1;
+            }
         }
             break;
         }
     }
+    return 0;
 }
 
-static void
+static int
 dhcpv6_print(netdissect_options *ndo,
              const u_char *cp, u_int length, int indent)
 {
     u_int i, t;
     const u_char *tlv, *value;
-    uint16_t type, bodylen;
+    uint16_t type, optlen;
 
     i = 0;
     while (i < length) {
         tlv = cp + i;
         type = EXTRACT_16BITS(tlv);
-        bodylen = EXTRACT_16BITS(tlv + 2);
+        optlen = EXTRACT_16BITS(tlv + 2);
         value = tlv + 4;
 
         ND_PRINT((ndo, "\n"));
@@ -259,12 +274,27 @@ dhcpv6_print(netdissect_options *ndo,
 
         switch (type) {
             case DH6OPT_DNS_SERVERS:
-            case DH6OPT_DOMAIN_LIST:
             case DH6OPT_SNTP_SERVERS: {
+                if (optlen % 16 != 0) {
+                    ND_PRINT((ndo, " %s", istr));
+                    return -1;
+                }
+                for (t = 0; t < optlen; t += 16)
+                    ND_PRINT((ndo, " %s", ip6addr_string(ndo, value + t)));
+            }
+                break;
+            case DH6OPT_DOMAIN_LIST: {
+                const u_char *tp = value;
+                while (tp < cp + 4 + optlen) {
+                    ND_PRINT((ndo, " "));
+                    if ((tp = ns_nprint(ndo, tp, cp + 4 + optlen)) == NULL)
+                        return -1;
+                }
             }
                 break;
         }
     }
+    return 0;
 }
 
 /* determine in-line mode */
@@ -550,14 +580,16 @@ hncp_print_rec(netdissect_options *ndo,
         case HNCP_DHCPV4_DATA: {
             if (bodylen == 0)
                 goto invalid;
-            dhcpv4_print(ndo, value, bodylen, indent+1);
+            if (dhcpv4_print(ndo, value, bodylen, indent+1) != 0)
+                goto invalid;
         }
             break;
 
         case HNCP_DHCPV6_DATA: {
             if (bodylen == 0)
                 goto invalid;
-            dhcpv6_print(ndo, value, bodylen, indent+1);
+            if (dhcpv6_print(ndo, value, bodylen, indent+1) != 0)
+                goto invalid;
         }
             break;
 
