@@ -405,7 +405,7 @@ hncp_print_rec(netdissect_options *ndo,
 
         case DNCP_REQUEST_NETWORK_STATE: {
             if (bodylen != 0)
-                goto invalid;
+                ND_PRINT((ndo, " %s", istr));
         }
             break;
 
