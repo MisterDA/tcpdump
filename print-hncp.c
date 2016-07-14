@@ -62,7 +62,7 @@ hncp_print(netdissect_options *ndo,
 #define DNCP_TRUST_VERDICT         10
 
 /* RFC7788 */
-#define HNCP_VERSION               32
+#define HNCP_HNCP_VERSION          32
 #define HNCP_EXTERNAL_CONNECTION   33
 #define HNCP_DELEGATED_PREFIX      34
 #define HNCP_PREFIX_POLICY         43
@@ -91,7 +91,7 @@ static const struct tok type_values[] = {
     { DNCP_KEEP_ALIVE_INTERVAL,   "Keep-alive interval" },
     { DNCP_TRUST_VERDICT,         "Trust-Verdict" },
 
-    { HNCP_VERSION,             "HNCP-Version" },
+    { HNCP_HNCP_VERSION,        "HNCP-Version" },
     { HNCP_EXTERNAL_CONNECTION, "External-Connection" },
     { HNCP_DELEGATED_PREFIX,    "Delegated-Prefix" },
     { HNCP_PREFIX_POLICY,       "Prefix-Policy" },
@@ -206,12 +206,12 @@ print_dns_label(netdissect_options *ndo,
     return -1;
 }
 
-static uint
+static u_int
 print_prefix(netdissect_options *ndo, const u_char *prefix)
 {
     uint8_t prefix_len = (uint8_t)prefix[0];
-    uint prefix_len_byte = (prefix_len + 7) / 8;
-    char buf[40];
+    u_int prefix_len_byte = (prefix_len + 7) / 8;
+    static char buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx::xxxx")];
     decode_prefix6(ndo, prefix, 1 + prefix_len_byte, buf, 40);
     safeputs(ndo, (const u_char*)buf, prefix_len_byte);
     return 1 + prefix_len_byte;
@@ -516,7 +516,7 @@ hncp_print_rec(netdissect_options *ndo,
         }
             break;
 
-        case HNCP_VERSION: {
+        case HNCP_HNCP_VERSION: {
             uint16_t capabilities;
             uint8_t M, P, H, L;
             if (bodylen < 5)
