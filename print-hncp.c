@@ -359,7 +359,7 @@ hncp_print_rec(netdissect_options *ndo,
     i = 0;
     while (i < length) {
         tlv = cp + i;
-        
+
         if (!in_line) {
             ND_PRINT((ndo, "\n"));
             for (t = indent; t > 0; t--)
@@ -601,15 +601,14 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_ASSIGNED_PREFIX: {
-            uint8_t rsv, prty;
+            uint8_t prty;
             u_int l;
             if (bodylen < 6 || bodylen < 6 + (value[5] + 7) / 8)
                 goto invalid;
-            rsv = (uint8_t)((value[4] >> 4) & 0xf);
             prty = (uint8_t)(value[4] & 0xf);
-            ND_PRINT((ndo, " EPID: %08x Rsv: %u Prty: %u",
+            ND_PRINT((ndo, " EPID: %08x Prty: %u",
                 EXTRACT_32BITS(value),
-                rsv, prty
+                prty
             ));
             ND_PRINT((ndo, " Prefix: "));
             l = 5 + print_prefix(ndo, value + 5);
