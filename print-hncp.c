@@ -540,18 +540,18 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DELEGATED_PREFIX: {
-            u_int len;
+            u_int l;
             if (bodylen < 9 || bodylen < 9 + (value[8] + 7) / 8)
                 goto invalid;
             ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: ",
                 format_interval(EXTRACT_32BITS(value)),
                 format_interval(EXTRACT_32BITS(value + 4))
             ));
-            len = 8 + print_prefix(ndo, value + 8);
-            len += -len & 3;
+            l = 8 + print_prefix(ndo, value + 8);
+            l += -l & 3;
 
-            if (bodylen >= len)
-                hncp_print_rec(ndo, value + len, bodylen - len, indent+1);
+            if (bodylen >= l)
+                hncp_print_rec(ndo, value + l, bodylen - l, indent+1);
         }
             break;
 
@@ -602,7 +602,7 @@ hncp_print_rec(netdissect_options *ndo,
 
         case HNCP_ASSIGNED_PREFIX: {
             uint8_t rsv, prty;
-            uint prefix_len;
+            u_int l;
             if (bodylen < 6 || bodylen < 6 + (value[5] + 7) / 8)
                 goto invalid;
             rsv = (uint8_t)((value[4] >> 4) & 0xf);
@@ -612,11 +612,11 @@ hncp_print_rec(netdissect_options *ndo,
                 rsv, prty
             ));
             ND_PRINT((ndo, " Prefix: "));
-            prefix_len = print_prefix(ndo, value + 5);
-            prefix_len += -prefix_len & 3;
+            l = 5 + print_prefix(ndo, value + 5);
+            l += -l & 3;
 
-            if (bodylen >= prefix_len)
-                hncp_print_rec(ndo, value + 6 + prefix_len, bodylen - 6 - prefix_len, indent+1);
+            if (bodylen >= l)
+                hncp_print_rec(ndo, value + l, bodylen - l, indent+1);
         }
             break;
 
