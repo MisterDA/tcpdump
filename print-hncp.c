@@ -206,6 +206,16 @@ print_dns_label(netdissect_options *ndo,
     return -1;
 }
 
+static uint
+print_prefix(netdissect_options *ndo, const u_char *prefix)
+{
+    uint8_t prefix_len = (uint8_t)prefix[0];
+    uint prefix_len_byte = (prefix_len + 7) / 8;
+    char buf[40];
+    decode_prefix6(ndo, prefix, 1 + prefix_len_byte, buf, 40);
+    safeputs(ndo, (const u_char*)buf, prefix_len_byte);
+    return 1 + prefix_len_byte;
+}
 
 static int
 dhcpv4_print(netdissect_options *ndo,
@@ -530,23 +540,18 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DELEGATED_PREFIX: {
-            uint8_t prefix_len;
-            uint prefix_len_byte;
-            char buf[23];
-            if (bodylen < 9)
+            u_int len;
+            if (bodylen < 9 || bodylen < 9 + (value[8] + 7) / 8)
                 goto invalid;
-            prefix_len = value[4];
-            prefix_len_byte = (prefix_len + 7) / 8;
-
             ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: ",
                 format_interval(EXTRACT_32BITS(value)),
                 format_interval(EXTRACT_32BITS(value + 4))
             ));
-            decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
-            safeputs(ndo, (const u_char*)buf, prefix_len_byte);
+            len = 8 + print_prefix(ndo, value + 8);
+            len += -len & 3;
 
-            prefix_len_byte += 5;
-            hncp_print_rec(ndo, value + prefix_len_byte, bodylen - prefix_len_byte, indent+1);
+            if (bodylen >= len)
+                hncp_print_rec(ndo, value + len, bodylen - len, indent+1);
         }
             break;
 
@@ -561,12 +566,8 @@ hncp_print_rec(netdissect_options *ndo,
                     goto invalid;
                 ND_PRINT((ndo, "Internet connectivity"));
             } else if (policy >= 1 && policy <= 128) {
-                uint8_t prefix_len = value[0];
-                uint prefix_len_byte = (prefix_len + 7) / 8;
-                char buf[23];
-                decode_prefix6(ndo, value + 1, prefix_len_byte, buf, 23);
                 ND_PRINT((ndo, "Dest-Prefix: "));
-                safeputs(ndo, (const u_char*)buf, prefix_len_byte);
+                print_prefix(ndo, value);
             } else if (policy == 129) {
                 ND_PRINT((ndo, "DNS domain: "));
                 print_dns_label(ndo, value+1, bodylen-1, 1);
@@ -600,26 +601,22 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_ASSIGNED_PREFIX: {
-            uint8_t rsv, prty, prefix_len;
-            uint prefix_len_byte;
-            if (bodylen < 6)
+            uint8_t rsv, prty;
+            uint prefix_len;
+            if (bodylen < 6 || bodylen < 6 + (value[5] + 7) / 8)
                 goto invalid;
             rsv = (uint8_t)((value[4] >> 4) & 0xf);
             prty = (uint8_t)(value[4] & 0xf);
-            prefix_len = (uint8_t)value[5];
-            prefix_len_byte = (prefix_len + 7) / 8;
-            ND_PRINT((ndo, " EPID: %08x Rsv: %u Prty: %u Prefix bodylen: %u",
+            ND_PRINT((ndo, " EPID: %08x Rsv: %u Prty: %u",
                 EXTRACT_32BITS(value),
-                rsv, prty, prefix_len
+                rsv, prty
             ));
-            if (prefix_len > 0) {
-                char buf[23];
-                ND_PRINT((ndo, " Prefix: "));
-                decode_prefix6(ndo, value + 9, prefix_len_byte, buf, 23);
-                safeputs(ndo, (const u_char*)buf, prefix_len_byte);
-            }
+            ND_PRINT((ndo, " Prefix: "));
+            prefix_len = print_prefix(ndo, value + 5);
+            prefix_len += -prefix_len & 3;
 
-            hncp_print_rec(ndo, value + 6 + prefix_len_byte, bodylen - 6 - prefix_len_byte, indent+1);
+            if (bodylen >= prefix_len)
+                hncp_print_rec(ndo, value + 6 + prefix_len, bodylen - 6 - prefix_len, indent+1);
         }
             break;
 
@@ -670,7 +667,7 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_NODE_NAME: {
-            u_char l;
+            u_int l;
             if (bodylen < 17)
                 goto invalid;
             l = value[16];
