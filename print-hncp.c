@@ -182,6 +182,27 @@ format_ip6addr(netdissect_options *ndo, const u_char *cp)
 }
 
 static int
+print_prefix(netdissect_options *ndo, const u_char *prefix, u_int max_length)
+{
+    int plenbytes;
+    static char buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx::/128")];
+    static u_char prefix_v4[5];
+    if (prefix[0] >= 96 && max_length >= 13 && EXTRACT_64BITS(prefix+1) == 0x0 && EXTRACT_32BITS(prefix+9) == 0xffff) {
+        prefix_v4[0] = prefix[0]-96;
+        prefix_v4[1] = prefix[13];
+        prefix_v4[2] = prefix[14];
+        prefix_v4[3] = prefix[15];
+        prefix_v4[4] = prefix[16];
+        plenbytes = 12 + decode_prefix4(ndo, (const u_char *)prefix_v4, max_length-12, buf, 45);
+    } else {
+        plenbytes = decode_prefix6(ndo, prefix, max_length, buf, 45);
+    }
+    
+    safeputs(ndo, (const u_char*)buf, 45);
+    return plenbytes;
+}
+
+static int
 print_dns_label(netdissect_options *ndo,
              const u_char *cp, u_int max_length, int print)
 {
@@ -204,15 +225,6 @@ print_dns_label(netdissect_options *ndo,
     if (print)
         ND_PRINT((ndo, "[|DNS]"));
     return -1;
-}
-
-static int
-print_prefix(netdissect_options *ndo, const u_char *prefix, u_int max_length)
-{
-    static char buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx::xxxx")];
-    int number = decode_prefix6(ndo, prefix, max_length, buf, 40);
-    safeputs(ndo, (const u_char*)buf, 40);
-    return number;
 }
 
 static int
