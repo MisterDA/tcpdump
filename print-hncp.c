@@ -206,15 +206,13 @@ print_dns_label(netdissect_options *ndo,
     return -1;
 }
 
-static u_int
-print_prefix(netdissect_options *ndo, const u_char *prefix)
+static int
+print_prefix(netdissect_options *ndo, const u_char *prefix, u_int max_length)
 {
-    uint8_t prefix_len = (uint8_t)prefix[0];
-    u_int prefix_len_byte = (prefix_len + 7) / 8;
     static char buf[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx::xxxx")];
-    decode_prefix6(ndo, prefix, 1 + prefix_len_byte, buf, 40);
-    safeputs(ndo, (const u_char*)buf, prefix_len_byte);
-    return 1 + prefix_len_byte;
+    int number = decode_prefix6(ndo, prefix, max_length, buf, 40);
+    safeputs(ndo, (const u_char*)buf, 40);
+    return number;
 }
 
 static int
@@ -242,7 +240,6 @@ dhcpv4_print(netdissect_options *ndo,
         case DH4OPT_DNS_SERVERS:
         case DH4OPT_NTP_SERVERS: {
             if (optlen < 4 || optlen % 4 != 0) {
-                ND_PRINT((ndo, " %s", istr));
                 return -1;
             }
             for (t = 0; t < optlen; t += 4)
@@ -540,15 +537,16 @@ hncp_print_rec(netdissect_options *ndo,
             break;
 
         case HNCP_DELEGATED_PREFIX: {
-            u_int l;
+            int l;
             if (bodylen < 9 || bodylen < 9 + (value[8] + 7) / 8)
                 goto invalid;
             ND_PRINT((ndo, " VLSO: %s PLSO: %s Prefix: ",
                 format_interval(EXTRACT_32BITS(value)),
                 format_interval(EXTRACT_32BITS(value + 4))
             ));
-            l = 8 + print_prefix(ndo, value + 8);
-            l += -l & 3;
+            if ((l = print_prefix(ndo, value + 8, bodylen - 8)) < 0)
+                goto invalid;
+            l += 8 + (-l & 3);
 
             if (bodylen >= l)
                 hncp_print_rec(ndo, value + l, bodylen - l, indent+1);
@@ -567,7 +565,7 @@ hncp_print_rec(netdissect_options *ndo,
                 ND_PRINT((ndo, "Internet connectivity"));
             } else if (policy >= 1 && policy <= 128) {
                 ND_PRINT((ndo, "Dest-Prefix: "));
-                print_prefix(ndo, value);
+                print_prefix(ndo, value, bodylen);
             } else if (policy == 129) {
                 ND_PRINT((ndo, "DNS domain: "));
                 print_dns_label(ndo, value+1, bodylen-1, 1);
@@ -602,7 +600,7 @@ hncp_print_rec(netdissect_options *ndo,
 
         case HNCP_ASSIGNED_PREFIX: {
             uint8_t prty;
-            u_int l;
+            int l;
             if (bodylen < 6 || bodylen < 6 + (value[5] + 7) / 8)
                 goto invalid;
             prty = (uint8_t)(value[4] & 0xf);
@@ -611,7 +609,9 @@ hncp_print_rec(netdissect_options *ndo,
                 prty
             ));
             ND_PRINT((ndo, " Prefix: "));
-            l = 5 + print_prefix(ndo, value + 5);
+            if ((l = print_prefix(ndo, value + 5, bodylen - 5)) < 0)
+                goto invalid;
+            l += 5;
             l += -l & 3;
 
             if (bodylen >= l)
