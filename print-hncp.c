@@ -197,14 +197,14 @@ print_prefix(netdissect_options *ndo, const u_char *prefix, u_int max_length)
     } else {
         plenbytes = decode_prefix6(ndo, prefix, max_length, buf, 45);
     }
-    
+
     safeputs(ndo, (const u_char*)buf, 45);
     return plenbytes;
 }
 
 static int
 print_dns_label(netdissect_options *ndo,
-             const u_char *cp, u_int max_length, int print)
+                const u_char *cp, u_int max_length, int print)
 {
     u_int length = 0;
     while (length < max_length) {
