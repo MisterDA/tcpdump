@@ -240,9 +240,9 @@ dhcpv4_print(netdissect_options *ndo,
             break;
         case DH4OPT_DOMAIN_SEARCH: {
             const u_char *tp = value;
-            while (tp < cp + 2 + optlen) {
+            while (tp < value + optlen) {
                 ND_PRINT((ndo, " "));
-                if ((tp = ns_nprint(ndo, tp, cp + 2 + optlen)) == NULL)
+                if ((tp = ns_nprint(ndo, tp, value + optlen)) == NULL)
                     return -1;
             }
         }
@@ -286,9 +286,9 @@ dhcpv6_print(netdissect_options *ndo,
                 break;
             case DH6OPT_DOMAIN_LIST: {
                 const u_char *tp = value;
-                while (tp < cp + 4 + optlen) {
+                while (tp < value + optlen) {
                     ND_PRINT((ndo, " "));
-                    if ((tp = ns_nprint(ndo, tp, cp + 4 + optlen)) == NULL)
+                    if ((tp = ns_nprint(ndo, tp, value + optlen)) == NULL)
                         return -1;
                 }
             }
@@ -348,6 +348,13 @@ hncp_print_rec(netdissect_options *ndo,
     i = 0;
     while (i < length) {
         tlv = cp + i;
+        
+        if (!in_line) {
+            ND_PRINT((ndo, "\n"));
+            for (t = indent; t > 0; t--)
+                ND_PRINT((ndo, "\t"));
+        }
+
         ND_TCHECK2(*tlv, 4);
         if (i + 4 > length)
             goto invalid;
@@ -393,13 +400,10 @@ hncp_print_rec(netdissect_options *ndo,
             goto skip_multiline;
         }
 
-        ND_PRINT((ndo, "\n"));
-        for (t = indent; t > 0; t--)
-            ND_PRINT((ndo, "\t"));
-        ND_PRINT((ndo,"%s (%u)",
-            tok2str(type_values, "Easter Egg (42)", type_mask),
-            bodylen + 4
-        ));
+        ND_PRINT((ndo,"%s", tok2str(type_values, "Easter Egg (42)", type_mask) ));
+        if (type_mask > 0xffff)
+            ND_PRINT((ndo,": type=%u", type ));
+        ND_PRINT((ndo," (%u)", bodylen + 4 ));
 
         switch (type_mask) {
 
@@ -700,7 +704,6 @@ hncp_print_rec(netdissect_options *ndo,
         case RANGE_HNCP_UNASSIGNED:
         case RANGE_DNCP_PRIVATE_USE:
         case RANGE_DNCP_FUTURE_USE:
-            ND_PRINT((ndo, " (type=%u)", type));
             break;
 
         }
