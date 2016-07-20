@@ -161,14 +161,15 @@ format_256(const u_char *data)
 }
 
 static const char *
-format_interval(const uint16_t i)
+format_interval(const uint16_t n)
 {
-    static char buf[sizeof("000.00s")];
-
-    if (i == 0)
+    static char buf[4][sizeof("000.00s")];
+    static int i = 0;
+    i = (i + 1) % 4;
+    if (n == 0)
         return "0.0s (bogus)";
-    snprintf(buf, sizeof(buf), "%u.%02us", i / 100, i % 100);
-    return buf;
+    snprintf(buf[i], sizeof(buf[i]), "%u.%02us", n / 100, n % 100);
+    return buf[i];
 }
 
 static const char *
