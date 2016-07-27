@@ -112,9 +112,9 @@ static const struct tok type_values[] = {
     { 0, NULL}
 };
 
-#define DH4OPT_DNS_SERVERS 6   /* RFC2132 */
-#define DH4OPT_NTP_SERVERS 42  /* RFC2132 */
-#define DH4OPT_DOMAIN_SEARCH 119    /* RFC3397 */
+#define DH4OPT_DNS_SERVERS 6     /* RFC2132 */
+#define DH4OPT_NTP_SERVERS 42    /* RFC2132 */
+#define DH4OPT_DOMAIN_SEARCH 119 /* RFC3397 */
 
 static const struct tok dh4opt_str[] = {
     { DH4OPT_DNS_SERVERS, "DNS-server" },
@@ -247,6 +247,7 @@ dhcpv4_print(netdissect_options *ndo,
             ND_PRINT((ndo, "\t"));
 
         ND_PRINT((ndo, "%s", tok2str(dh4opt_str, "Unknown", type)));
+        ND_PRINT((ndo," (%u)", optlen + 2 ));
 
         switch (type) {
         case DH4OPT_DNS_SERVERS:
@@ -268,6 +269,8 @@ dhcpv4_print(netdissect_options *ndo,
         }
             break;
         }
+
+        i += 2 + optlen;
     }
     return 0;
 }
@@ -292,6 +295,7 @@ dhcpv6_print(netdissect_options *ndo,
             ND_PRINT((ndo, "\t"));
 
         ND_PRINT((ndo, "%s", tok2str(dh6opt_str, "Unknown", type)));
+        ND_PRINT((ndo," (%u)", optlen + 4 ));
 
         switch (type) {
             case DH6OPT_DNS_SERVERS:
@@ -314,6 +318,8 @@ dhcpv6_print(netdissect_options *ndo,
             }
                 break;
         }
+
+        i += 4 + optlen;
     }
     return 0;
 }
@@ -589,7 +595,7 @@ hncp_print_rec(netdissect_options *ndo,
                     goto invalid;
                 ND_PRINT((ndo, "Restrictive assignment"));
             } else if (policy >= 132) {
-                ND_PRINT((ndo, "Unknown (%u)", type)); /* Reserved for future additions */
+                ND_PRINT((ndo, "Unknown (%u)", policy)); /* Reserved for future additions */
             }
         }
             break;
